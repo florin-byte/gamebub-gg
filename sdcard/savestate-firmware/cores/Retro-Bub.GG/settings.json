@@ -1,0 +1,107 @@
+{
+	"settings": [
+		{
+			"id": 2,
+			"label": "Region",
+			"address": "0x0",
+			"mask": "0xFFFFFFF9",
+			"type": "list",
+			"items": [
+				{
+					"label": "Auto (ROM header)",
+					"value": "0x0"
+				},
+				{
+					"label": "US / Europe",
+					"value": "0x2"
+				},
+				{
+					"label": "Japan",
+					"value": "0x4"
+				}
+			],
+			"default": "0x0"
+		},
+		{
+			"id": 4,
+			"label": "No Sprite Limit",
+			"address": "0x0",
+			"mask": "0xFFFFFFEF",
+			"type": "checkbox",
+			"value": "0x10",
+			"default": "0x0"
+		},
+		{
+			"id": 6,
+			"label": "Scaling",
+			"address": "0x0",
+			"mask": "0xFFFFFF3F",
+			"type": "list",
+			"items": [
+				{
+					"label": "Sharp Bilinear",
+					"value": "0x40"
+				},
+				{
+					"label": "Bilinear",
+					"value": "0x80"
+				},
+				{
+					"label": "Integer",
+					"value": "0x0"
+				}
+			],
+			"default": "0x40"
+		},
+		{
+			"id": 7,
+			"label": "State Slot",
+			"address": "0xFFFFFFFF",
+			"type": "list",
+			"file_slots": 2,
+			"items": [
+				{
+					"label": "Slot 1",
+					"value": "0x0"
+				},
+				{
+					"label": "Slot 2",
+					"value": "0x1"
+				},
+				{
+					"label": "Slot 3",
+					"value": "0x2"
+				},
+				{
+					"label": "Slot 4",
+					"value": "0x3"
+				}
+			],
+			"default": "0x0"
+		},
+		{
+			"id": 8,
+			"label": "Save State",
+			"address": "0xFFFFFFFF",
+			"type": "action",
+			"value": "0x0",
+			"file": 2
+		},
+		{
+			"id": 9,
+			"label": "Load State",
+			"address": "0xFFFFFFFF",
+			"type": "action",
+			"value": "0x0",
+			"file": 2,
+			"load": true
+		},
+		{
+			"id": 15,
+			"label": "Reset",
+			"address": "0x2000",
+			"type": "action",
+			"value": "0x1"
+		}
+	]
+}

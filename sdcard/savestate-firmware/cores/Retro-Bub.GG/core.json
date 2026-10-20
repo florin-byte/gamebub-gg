@@ -1,0 +1,19 @@
+{
+	"metadata": {
+		"id": "Retro-Bub.GG",
+		"name": "Game Gear",
+		"author": "MiSTer, Florin",
+		"version": "0.1.0",
+		"license": "GPL-3.0-only"
+	},
+	"bitstreams": [
+		{
+			"target": "gamebub_rev4",
+			"filename": "gg-gamebub_rev4.bit"
+		},
+		{
+			"target": "gamebub_rev2",
+			"filename": "gg-gamebub_rev2.bit"
+		}
+	]
+}

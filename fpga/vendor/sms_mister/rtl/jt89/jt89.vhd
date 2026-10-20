@@ -1,0 +1,31 @@
+library IEEE;
+use IEEE.std_logic_1164.all;
+
+package jt89_components is
+
+component jt89
+port
+(
+    rst        : in  std_logic;
+    clk        : in  std_logic;         -- CPU clock
+    clk_en     : in  std_logic := '1';  -- optional clock enable, if not needed leave as '1'
+    din        : in  std_logic_vector(7 downto 0);
+    wr_n       : in  std_logic;
+    ready      : out std_logic;
+    mux        : in  std_logic_vector(7 downto 0);
+    soundl     : out std_logic_vector(10 downto 0); -- signed
+    soundr     : out std_logic_vector(10 downto 0); -- signed
+    -- Save-state ports
+    ss_out     : out std_logic_vector(55 downto 0);
+    ss_set     : in  std_logic := '0';
+    ss_in      : in  std_logic_vector(55 downto 0) := (others => '0');
+    ss_ext_out : out std_logic_vector(95 downto 0);
+    ss_ext_in  : in std_logic_vector(95 downto 0) := (others => '0');
+    ss_ext_set : in std_logic := '0';
+    ss_div_out : out std_logic_vector(3 downto 0);
+    ss_div_in  : in std_logic_vector(3 downto 0) := (others => '0');
+    ss_quiescent : out std_logic
+);
+end component;
+
+end;

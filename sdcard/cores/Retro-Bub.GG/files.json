@@ -1,0 +1,28 @@
+{
+	"files": [
+		{
+			"id": 0,
+			"label": "Cartridge",
+			"extensions": [
+				"gg"
+			],
+			"user_selected": true,
+			"optional": false,
+			"read_only": true,
+			"address": "0x30000000",
+			"max_size": "0x400000"
+		},
+		{
+			"id": 1,
+			"label": "Save",
+			"extensions": [
+				"sav"
+			],
+			"dependent_on_0": true,
+			"optional": true,
+			"initialize": true,
+			"address": "0x40000000",
+			"max_size": "0x8000"
+		}
+	]
+}
