@@ -58,6 +58,28 @@
 			"default": "0x40"
 		},
 		{
+			"id": 10,
+			"label": "Colors",
+			"address": "0x0",
+			"mask": "0xFFFFFCFF",
+			"type": "list",
+			"items": [
+				{
+					"label": "Auto",
+					"value": "0x0"
+				},
+				{
+					"label": "Game Gear",
+					"value": "0x100"
+				},
+				{
+					"label": "Master System",
+					"value": "0x200"
+				}
+			],
+			"default": "0x0"
+		},
+		{
 			"id": 15,
 			"label": "Reset",
 			"address": "0x2000",

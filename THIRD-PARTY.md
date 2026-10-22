@@ -23,6 +23,59 @@ something changed or removed, please open an issue.
 | Audio mixer | `rtl/AudioMix.vhd` | Alastair M. Robinson | copyright notice only, no license text |
 | MC8123 and System 1 decryption, `parts.v` (arcade System E) | `rtl/MC8123.v`, `rtl/SEGASYS1_PRGDEC.v`, `rtl/parts.v` | blackwine (MC8123, algorithm from MAME); MiSTer-X | copyright notices only, no license text |
 
+## Genesis Plus GX: Game Gear games in Master System mode (CRC-32 list)
+
+- Used in: `fpga/src/main/scala/net/gamebub/core/sms/GgSmsColors.scala` (`GgSmsColors.Crcs`), for the Colors setting
+  (Auto).
+- What: the CRC-32 values (data only, no code) of the `SYSTEM_GGMS` entries with the Sega mapper in the game database
+  of `core/cart_hw/sms_cart.c`: the Game Gear games that run in the console's Master System compatibility mode.
+- Source: https://github.com/ekeeke/Genesis-Plus-GX, `core/cart_hw/sms_cart.c` (master at
+  `49c584764893b0505ac7f768a754f97330fa4392`).
+- Authors: Eke-Eke (Genesis Plus GX).
+- License: the Genesis Plus GX non-commercial license, reproduced below from the file's header. In particular,
+  redistributions may not be sold, nor used in a commercial product or activity. (The 93C46 EEPROM in the table above
+  comes from Genesis Plus GX too, under the same kind of license.)
+
+```
+Genesis Plus
+SG-1000, Master System & Game Gear cartridge hardware support
+
+Copyright (C) 2007-2025  Eke-Eke (Genesis Plus GX)
+
+Credits to Ben Sittler and Omar Cornut at smspower.org for Korean mappers
+reverse-engineering and description
+
+Redistribution and use of this code or any derivative works are permitted
+provided that the following conditions are met:
+
+ - Redistributions may not be sold, nor may they be used in a commercial
+   product or activity.
+
+ - Redistributions that are modified from the original source must include the
+   complete source code, including the source code for all components used by a
+   binary built from the modified sources. However, as a special exception, the
+   source code distributed need not include anything that is normally distributed
+   (in either source or binary form) with the major components (compiler, kernel,
+   and so on) of the operating system on which the executable runs, unless that
+   component itself accompanies the executable.
+
+ - Redistributions must reproduce the above copyright notice, this list of
+   conditions and the following disclaimer in the documentation and/or other
+   materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+```
+
 ## Everything else
 
 | Component | Where | Authors | License |
@@ -42,8 +95,10 @@ something changed or removed, please open an issue.
 
 GPL-2.0-or-later (`LICENSE-GPL-V2`, `LICENSE-GPL-V3`):
 
-- the Master System / Game Gear glue: `fpga/src/main/scala/net/gamebub/core/sms/`, `fpga/src/main/vhdl/sms/`,
-  `fpga/sim/sms/`, `scripts/rev2/sms_test_sim.sh`, `sdcard/`;
+- the Master System / Game Gear glue: `fpga/src/main/scala/net/gamebub/core/sms/` (including the CRC-32 code in
+  `GgSmsColors.scala`; the CRC list in it is Genesis Plus GX data, see above), `fpga/src/main/vhdl/sms/`,
+  `fpga/sim/sms/`, `fpga/src/test/scala/net/gamebub/core/sms/RomCrc32Spec.scala`, `scripts/rev2/sms_test_sim.sh`,
+  `sdcard/`;
 - the LCD aspect scaler: `fpga/src/main/scala/platform/handheld/LcdAspectScaler.scala`,
   `lib/video/PolyphaseScaler.scala`, `net/gamebub/framework/interface/VideoScalerV0.scala` and its wiring in
   `HandheldTop.scala`, `fpga/src/test/scala/platform/handheld/LcdAspectScalerSpec.scala`;

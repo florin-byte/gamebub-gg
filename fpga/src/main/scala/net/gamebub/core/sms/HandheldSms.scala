@@ -23,7 +23,10 @@ object HandheldSms {
 
   /** Register 0x0000, written by the core settings (settings.json). */
   class Config extends Bundle {
-    val reserved = UInt(24.W)
+    val reserved = UInt(22.W)
+    /** Bits 9-8: Game Gear colors (GgSmsColors: 0 = Auto from the ROM's CRC-32, 1 = Game Gear,
+     *  2 = Master System palette for the games that run in SMS mode; 3 = Game Gear). Ignored by the SMS core. */
+    val colors = UInt(2.W)
     /** Bits 7-6: scaling (VideoScalerV0: 0 = integer, 1 = Sharp Bilinear, 2 = Bilinear, 3 = Nearest) */
     val filter = UInt(2.W)
     /** Bit 5: SG-1000 (TMS9918 palette) */
@@ -205,6 +208,10 @@ class SmsCore(gameGear: Boolean) extends Module {
   val regRomMask512 = RegInit(0.U(24.W))
   val regRomHeader512 = RegInit(false.B)
   val regHeaderRegion = RegInit(0.U(4.W))
+  // Game Gear: the ROM's CRC-32 is in GgSmsColors' list (a game that runs in Master System mode).
+  val regRomSize = RegInit(0.U(24.W))
+  val regSmsColorsAuto = RegInit(false.B)
+  val romLoadStart = WireDefault(false.B)
   // Cartridge RAM written by the game since the .sav was loaded
   val regSaveDirty = RegInit(false.B)
   // ROM read statistics (SDRAM latency, in system clocks), cleared by a write
@@ -347,6 +354,8 @@ class SmsCore(gameGear: Boolean) extends Module {
           regRomLoaded := false.B
           regHeaderRegion := 0.U
           regGameId := "h811C9DC5".U
+          regSmsColorsAuto := false.B
+          romLoadStart := true.B
         } .elsewhen (fileId === FileSave.U) {
           regSaveDirty := false.B
         }
@@ -357,6 +366,7 @@ class SmsCore(gameGear: Boolean) extends Module {
           regRomMask := smear(size - 1.U)
           regRomMask512 := smear(size - 513.U)
           regRomHeader512 := size(9, 0) === 512.U
+          regRomSize := size
           regRomEndPending := true.B
           commandHostState := CommandState.busy
         } .elsewhen (fileId === FileState.U) {
@@ -385,7 +395,19 @@ class SmsCore(gameGear: Boolean) extends Module {
     regStateSave := false.B
     regStateLoad := false.B
   }
+  // CRC-32 of the ROM as it is replayed, without the copier header (Game Gear only).
+  val romCrc = Option.when(gameGear) {
+    val m = Module(new RomCrc32(addressWidth = 24))
+    m.io.start := romLoadStart
+    m.io.valid := replayEnable
+    m.io.address := regReplayAddress(23, 0)
+    m.io.data := replayData
+    m.io.size := regRomSize
+    m
+  }
   when (regRomEndPending && regReplayBytes === 0.U) {
+    // The last byte has been replayed: the CRC is complete.
+    romCrc.foreach(m => regSmsColorsAuto := GgSmsColors.matches(m.io.crc))
     regRomEndPending := false.B
     regReplayActive := false.B
     regRomLoaded := true.B
@@ -436,7 +458,11 @@ class SmsCore(gameGear: Boolean) extends Module {
   sp.ce_vdp := ceVdp && !stateFreeze
   sp.ce_pix := cePix && !stateFreeze
   sp.ce_sp := ceSp && !stateFreeze
-  sp.gg := gameGear.B
+  // Game Gear games that run in Master System mode: SMS palette (and Start as the SMS Pause button), in the
+  // same 160x144 Game Gear window (ggres).
+  val smsColors = Mux(configReg.colors === GgSmsColors.ColorsAuto.U, regSmsColorsAuto,
+    configReg.colors === GgSmsColors.ColorsSms.U)
+  sp.gg := gameGear.B && !smsColors
   sp.ggres := gameGear.B
   sp.RESET_n := !coreReset
   sp.dbr := regRomLoaded
