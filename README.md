@@ -10,6 +10,18 @@ firmware and the scripts to build it. The same sources also build the Master Sys
 
 If you only want to play, take the zip from the [releases](../../releases), you don't need to build anything.
 
+## New since v0.1.0 (not released yet)
+
+- Scaling has a fourth option, Nearest.
+- Colors: Auto / Game Gear / Master System, for the Game Gear games that run in Master System mode.
+- Swap A/B in the core's menu, with my firmware.
+
+I tested all three on my rev2 console on 22 Oct 2026 (Colors only with Out Run Europa). rev4 is not tested yet. The
+bitstreams for this are not uploaded yet, the ones in the v0.1.0 release don't have these features. Build the
+bitstream yourself (see [Building the bitstream](#building-the-bitstream)) or wait for the next release. The json
+files in `sdcard/` are already the new ones, so use them with a new bitstream: with the v0.1.0 bitstream, Nearest
+looks like Sharp Bilinear, Colors does nothing and Swap A/B shows up in the menu but does not swap.
+
 ## Does it work?
 
 - rev2: yes, this is what I use myself. Games, the `.sav` battery saves, the scaler and save states (with my
@@ -27,7 +39,19 @@ If you only want to play, take the zip from the [releases](../../releases), you 
 
 - Region: Auto (from the rom header) / US-Europe / Japan.
 - No Sprite Limit: no limit of sprites per line (less flicker, but not like the real console).
-- Scaling: Sharp Bilinear / Bilinear / Integer. The picture is 160x144, scaled to the full height of the screen.
+- Scaling: Sharp Bilinear / Bilinear / Nearest / Integer. The picture is 160x144, scaled to the full height of the
+  screen. Nearest is the same size as the bilinear ones, but without blending, every screen pixel is one Game Gear
+  pixel. The scale is not a whole number (10/3 on rev4), so some pixels are one line wider than the others. If you
+  don't like that, use Sharp Bilinear, or Integer for a smaller picture with even pixels.
+- Colors: Auto / Game Gear / Master System. Some Game Gear games run in the console's Master System mode (Castle of
+  Illusion, Out Run Europa, Prince of Persia, Olympic Gold and a lot of Japanese and Taiwanese ones) and need the
+  Master System palette, with the Game Gear one the colors are wrong. Auto finds them by the CRC-32 of the rom (the
+  list is from Genesis Plus GX) and switches to the Master System colors, the screen stays 160x144. In that mode
+  Start is the Master System Pause button, like on the real console. Game Gear and Master System force one palette,
+  for a hack or a dump that is not in the list. Reset the game after you change it.
+- Swap A/B (only with my firmware, right before Reset): swaps A and B for this core only, at once, without a restart.
+  It's off by default and every core keeps its own value. The menus are not swapped. With Settings > Dock > Swap A/B
+  and X/Y also on, a docked controller has A and B normal again (X and Y stay swapped). I didn't test it with a dock.
 - Reset.
 
 ## Save states
@@ -39,9 +63,9 @@ firmware there are no save states. The `.sav` battery saves work anyway.
 - Stock firmware: use `sdcard/cores/Retro-Bub.GG`. Everything works except save states. Don't use the other folder
   with it, the State file will give an error when you exit the game.
 - My firmware (`firmware/handheld/`): use `sdcard/savestate-firmware/cores/Retro-Bub.GG`. Then you have State Slot,
-  Save State and Load State (`.ss0` to `.ss3` next to the rom). I tested it on rev2. For rev4 it compiles
-  (`cargo check --features rev4`) but nobody ran it on a rev4 yet. Build it like the stock one (ESP-IDF 5.4.3,
-  `cargo build --release --features rev4`).
+  Save State and Load State (`.ss0` to `.ss3` next to the rom), and Swap A/B. I tested it on rev2. For rev4 it
+  compiles (`cargo check --features rev4`) but nobody ran it on a rev4 yet. Build it like the stock one (ESP-IDF
+  5.4.3, `cargo build --release --features rev4`).
 
 ## How the save states work in my firmware
 
@@ -72,6 +96,36 @@ In the json files it looks like this (see `sdcard/savestate-firmware/`):
 - `settings.json`: a list with `"file_slots": 2` (the State Slot, the slot is the number in `.ssN`, and the firmware
   puts a `*` next to the slots that already have a file), and two actions with `"file": 2`, one of them with
   `"load": true` (Save State and Load State).
+
+## How Swap A/B works
+
+The swap is in the FPGA, not in the firmware. The platform (`HandheldTop.scala`) has a new write-only register,
+`0x1018` (`REG_CTRL_INPUT` in the firmware), bit 0 swaps A and B on the way to the core, for the console's buttons
+and for a docked gamepad. The firmware reads the buttons before the swap, so the menus are never swapped.
+
+The firmware adds the "Swap A/B" checkbox itself (`core/info.rs`, `add_swap_ab_setting`), right before the core's
+Reset entry, only when the core says its bitstream has the register: `"hardware": {"swap_ab": true}` in
+`core.json`. The setting id `0x7FF0` is reserved for it. The value is saved per core like the other settings, in
+`/sdcard/settings/<core id>.json`. Eli's firmware ignores the unknown `swap_ab` field (serde skips unknown fields),
+so the same `core.json` works there, just without the entry. A bitstream built before this change has nothing at
+`0x1018`, so don't put `swap_ab` in a core.json that goes with such a bitstream.
+
+The built-in Game Boy and GBA cores don't show it yet (`swap_ab: false`, their bitstreams in the firmware don't have
+the register). For them the value would go in the KVS (`gb-swap-ab`, `gba-swap-ab`). Their "Reset Core" entry is
+now the last one in the menu, like in the other cores.
+
+## How the colors work
+
+While the firmware loads the rom, the core already copies every byte into the MiSTer code. `RomCrc32`
+(`GgSmsColors.scala`) takes the same bytes and computes the CRC-32 (the No-Intro one, without the 512 byte copier
+header if the file has one). At the end it compares it with the 44 games of the list. If it is there and Colors is
+Auto, the core runs the MiSTer code with `gg` off (Master System palette and Pause) and `ggres` on (the Game Gear
+screen). The setting is bits 9-8 of the core's register `0x0`. The list has the `SYSTEM_GGMS` games with the Sega
+mapper from Genesis Plus GX's `sms_cart.c`, it has 9 more with other mappers (Codemasters, Korean) that are not
+in mine.
+
+Nearest is filter 3 of the scaler (`VideoScalerV0.FilterNearest`, value `0xC0` in `settings.json`): the scaler
+takes the source pixel nearest to the sample position, a tie goes right or down.
 
 If you want save states in your own firmware, these are the parts to take: `core/on_demand.rs`, the `on_demand`
 flag and the `file` / `file_slots` keys in `core/info.rs`, and the few lines in `core/settings.rs` that send these
@@ -104,7 +158,7 @@ for every file: `VM2413` has to be read as VHDL-93 (it uses `Release`, which is 
 ## Where things are
 
 - `fpga/src/main/scala/net/gamebub/core/sms/`: my glue for the core. `HandheldGg` is `HandheldSmsBase` with
-  `gameGear = true`.
+  `gameGear = true`. `GgSmsColors.scala` is the CRC-32 and the list of games for Colors.
 - `fpga/vendor/sms_mister/`: the MiSTer code. Its `README.md` says what I changed and why.
 - `fpga/src/main/vhdl/sms/xilinx_ram.vhd`: the RAMs the MiSTer code expects, for Xilinx.
 - `fpga/src/main/scala/platform/handheld/LcdAspectScaler.scala`, `lib/video/PolyphaseScaler.scala`,
@@ -127,7 +181,9 @@ for every file: `VM2413` has to be read as VHDL-93 (it uses `Release`, which is 
   Genesis Plus GX). Everything is listed in `THIRD-PARTY.md`.
 
 Thanks to Ben for the original Master System core, to the SMS_MiSTer people, to Eli for the Game Bub, to
-minuitfranck and Jeremy O'Brien for the parts I took from their ports, and to Toady M for testing on rev4.
+minuitfranck and Jeremy O'Brien for the parts I took from their ports, to Toady M for testing on rev4, and to Eke-Eke
+for Genesis Plus GX, where the list of Game Gear games in Master System mode comes from (non-commercial license, see
+`THIRD-PARTY.md`).
 
 "Game Bub" is Eli's project and trademark, this is a community port. "Sega" and "Game Gear" belong to their owners.
 No bios and no games in here.
