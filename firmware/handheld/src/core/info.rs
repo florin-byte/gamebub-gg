@@ -402,6 +402,10 @@ fn add_swap_ab_setting(core: &mut CoreInfo) {
     if !core.swap_ab {
         return;
     }
+    // A settings.json made for the stock firmware can have its own entry for the register: keep only that one.
+    if core.settings.iter().any(|s| s.address == fpga::REG_CTRL_INPUT) {
+        return;
+    }
     if core.settings.iter().any(|s| s.id == super::SETTING_SWAP_AB) {
         log::warn!(
             "Core setting id {} is reserved for Swap A/B, not adding it",

@@ -14,7 +14,7 @@ If you only want to play, take the zip from the [releases](../../releases), you 
 
 - Scaling has a fourth option, Nearest.
 - Colors: Auto / Game Gear / Master System, for the Game Gear games that run in Master System mode.
-- Swap A/B in the core's menu, with my firmware.
+- Swap A/B in the core's menu.
 
 I tested all three on my rev2 console on 22 Oct 2026 (Colors only with Out Run Europa). rev4 is not tested yet. The
 bitstreams for this are not uploaded yet, the ones in the v0.1.0 release don't have these features. Build the
@@ -49,9 +49,11 @@ looks like Sharp Bilinear, Colors does nothing and Swap A/B shows up in the menu
   list is from Genesis Plus GX) and switches to the Master System colors, the screen stays 160x144. In that mode
   Start is the Master System Pause button, like on the real console. Game Gear and Master System force one palette,
   for a hack or a dump that is not in the list. Reset the game after you change it.
-- Swap A/B (only with my firmware, right before Reset): swaps A and B for this core only, at once, without a restart.
+- Swap A/B (right before Reset): swaps A and B for this core only, at once, without a restart.
   It's off by default and every core keeps its own value. The menus are not swapped. With Settings > Dock > Swap A/B
   and X/Y also on, a docked controller has A and B normal again (X and Y stay swapped). I didn't test it with a dock.
+  With the stock firmware it should work the same, the entry is in its `settings.json`. I tested that json on rev2
+  with my firmware, not with the stock one and not on rev4.
 - Reset.
 
 ## Save states
@@ -63,7 +65,7 @@ firmware there are no save states. The `.sav` battery saves work anyway.
 - Stock firmware: use `sdcard/cores/Retro-Bub.GG`. Everything works except save states. Don't use the other folder
   with it, the State file will give an error when you exit the game.
 - My firmware (`firmware/handheld/`): use `sdcard/savestate-firmware/cores/Retro-Bub.GG`. Then you have State Slot,
-  Save State and Load State (`.ss0` to `.ss3` next to the rom), and Swap A/B. I tested it on rev2. For rev4 it
+  Save State and Load State (`.ss0` to `.ss3` next to the rom). I tested it on rev2. For rev4 it
   compiles (`cargo check --features rev4`) but nobody ran it on a rev4 yet. Build it like the stock one (ESP-IDF
   5.4.3, `cargo build --release --features rev4`).
 
@@ -107,7 +109,10 @@ The firmware adds the "Swap A/B" checkbox itself (`core/info.rs`, `add_swap_ab_s
 Reset entry, only when the core says its bitstream has the register: `"hardware": {"swap_ab": true}` in
 `core.json`. The setting id `0x7FF0` is reserved for it. The value is saved per core like the other settings, in
 `/sdcard/settings/<core id>.json`. Eli's firmware ignores the unknown `swap_ab` field (serde skips unknown fields),
-so the same `core.json` works there, just without the entry. A bitstream built before this change has nothing at
+so the same `core.json` works there. For the stock firmware the entry is written in
+`sdcard/cores/Retro-Bub.GG/settings.json` instead: a plain checkbox at `0xF1001018` (mask 0), which any firmware
+writes to the FPGA like the other settings. When a `settings.json` already has an entry for that register, my
+firmware does not add a second one. A bitstream built before this change has nothing at
 `0x1018`, so don't put `swap_ab` in a core.json that goes with such a bitstream.
 
 The built-in Game Boy and GBA cores don't show it yet (`swap_ab: false`, their bitstreams in the firmware don't have
