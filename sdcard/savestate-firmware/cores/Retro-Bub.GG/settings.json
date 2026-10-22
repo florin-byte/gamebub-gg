@@ -123,6 +123,15 @@
 			"load": true
 		},
 		{
+			"id": 11,
+			"label": "Swap A/B",
+			"address": "0xF1001018",
+			"mask": "0x0",
+			"type": "checkbox",
+			"value": "0x1",
+			"default": "0x0"
+		},
+		{
 			"id": 15,
 			"label": "Reset",
 			"address": "0x2000",

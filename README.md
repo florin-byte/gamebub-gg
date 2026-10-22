@@ -62,8 +62,10 @@ The save states are in the bitstream (the MiSTer save state engine), but they ne
 state between the core and the SD card while the game runs. Eli's firmware does not have that, so on the stock
 firmware there are no save states. The `.sav` battery saves work anyway.
 
-- Stock firmware: use `sdcard/cores/Retro-Bub.GG`. Everything works except save states. Don't use the other folder
-  with it, the State file will give an error when you exit the game.
+- Stock firmware: use `sdcard/cores/Retro-Bub.GG`. Everything works except save states. The other folder
+  works with it too: the State file is marked read only, so the stock firmware doesn't try to write it at exit and
+  there is no error. State Slot, Save State and Load State are in the menu but do nothing there. Swap A/B works in
+  both folders, with both firmwares. I didn't test the other folder on the stock firmware yet, I only read Eli's code.
 - My firmware (`firmware/handheld/`): use `sdcard/savestate-firmware/cores/Retro-Bub.GG`. Then you have State Slot,
   Save State and Load State (`.ss0` to `.ss3` next to the rom). I tested it on rev2. For rev4 it
   compiles (`cargo check --features rev4`) but nobody ran it on a rev4 yet. Build it like the stock one (ESP-IDF
