@@ -24,7 +24,7 @@ object HandheldSms {
   /** Register 0x0000, written by the core settings (settings.json). */
   class Config extends Bundle {
     val reserved = UInt(24.W)
-    /** Bits 7-6: scaling (VideoScalerV0: 0 = integer, 1 = Sharp Bilinear, 2 = Bilinear) */
+    /** Bits 7-6: scaling (VideoScalerV0: 0 = integer, 1 = Sharp Bilinear, 2 = Bilinear, 3 = Nearest) */
     val filter = UInt(2.W)
     /** Bit 5: SG-1000 (TMS9918 palette) */
     val sg = Bool()

@@ -47,6 +47,10 @@
 					"value": "0x80"
 				},
 				{
+					"label": "Nearest",
+					"value": "0xC0"
+				},
+				{
 					"label": "Integer",
 					"value": "0x0"
 				}
