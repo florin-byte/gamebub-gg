@@ -129,6 +129,8 @@ impl Gameboy {
             is_built_in: true,
             core_dir: PathBuf::new(),
             uses_cartridge: CoreCartridgeMode::IfSelected,
+            // Swap A/B: set to true once gameboy.bit.hs is rebuilt with the platform register REG_CTRL_INPUT.
+            swap_ab: false,
             files: [
                 CoreFile {
                     id: SETTING_RESET,
@@ -265,14 +267,6 @@ impl Gameboy {
                     inner: CoreSettingType::Action { value: 1, file: None, load: false },
                 },
                 CoreSetting {
-                    id: 0,
-                    label: "Reset Core".into(),
-                    address: REG_RESET_ONCE,
-                    mask: 0,
-                    default: 0,
-                    inner: CoreSettingType::Action { value: 1, file: None, load: false },
-                },
-                CoreSetting {
                     id: SETTING_GB_MODE,
                     label: "Enable GB Mode".into(),
                     address: 0xFFFF_FFFF,
@@ -315,6 +309,14 @@ impl Gameboy {
                             .collect(),
                         file_slots: None,
                     },
+                },
+                CoreSetting {
+                    id: 0,
+                    label: "Reset Core".into(),
+                    address: REG_RESET_ONCE,
+                    mask: 0,
+                    default: 0,
+                    inner: CoreSettingType::Action { value: 1, file: None, load: false },
                 },
             ]
             .into_iter()
@@ -514,6 +516,11 @@ impl CoreHandler for Gameboy {
                 SETTING_GB_COLOR_PALETTE,
                 kvs::keys::DMG_COLOR_PALETTE.get().unwrap() as u32,
             ),
+            // Used only if the menu has the entry (CoreInfo::swap_ab).
+            (
+                crate::core::SETTING_SWAP_AB,
+                kvs::keys::GB_SWAP_AB.get().unwrap() as u32,
+            ),
         ]
     }
 
@@ -530,6 +537,11 @@ impl CoreHandler for Gameboy {
                     extension: Self::state_extension(self.state_slot),
                     label: format!("slot {}", self.state_slot + 1),
                 });
+                return;
+            }
+            crate::core::SETTING_SWAP_AB => {
+                // The core manager writes the register; only store the value here.
+                kvs::keys::GB_SWAP_AB.set(&(value != 0));
                 return;
             }
             _ => {}

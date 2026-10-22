@@ -6,6 +6,9 @@
 		"version": "0.1.0",
 		"license": "GPL-3.0-only"
 	},
+	"hardware": {
+		"swap_ab": true
+	},
 	"bitstreams": [
 		{
 			"target": "gamebub_rev4",

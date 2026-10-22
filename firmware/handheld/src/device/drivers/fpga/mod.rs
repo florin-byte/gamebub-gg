@@ -28,6 +28,8 @@ pub const REG_CTRL_BUTTON_FORCE: u32 = 0xF100_1008;
 pub const REG_CTRL_DOCK: u32 = 0xF100_100C;
 pub const REG_CTRL_FOCUS: u32 = 0xF100_1010;
 pub const REG_CTRL_VIBRATE: u32 = 0xF100_1014;
+/// Bit 0: swap A and B on the way to the core (the buttons at REG_STATUS_BUTTON are not swapped).
+pub const REG_CTRL_INPUT: u32 = 0xF100_1018;
 
 pub const REG_CTRL_CMD_HOST: u32 = 0xF100_1100;
 pub const REG_CTRL_CMD_CORE: u32 = 0xF100_1104;

@@ -438,6 +438,10 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
   val controlInterruptEnable = RegInit(0.U.asTypeOf(new HandheldInterrupts))
   val controlInterruptPending = RegInit(0.U.asTypeOf(new HandheldInterrupts))
   val controlButtonForce = RegInit(0.U.asTypeOf(new InputV0.Buttons))
+  val controlInput = RegInit(0.U.asTypeOf(new Bundle() {
+    /** True to swap A and B on the way to the core (the buttons read at 0x2000 are not swapped) */
+    val swapAB = Bool()
+  }))
   val controlDock = RegInit(0.U.asTypeOf(new Bundle() {
     /** True if the device is docked */
     val docked = Bool()
@@ -479,6 +483,7 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
       0x100C -> RegisterMap.Entry.w(controlDock),
       0x1010 -> RegisterMap.Entry.w(controlCoreFocus),
       0x1014 -> RegisterMap.Entry.w(controlVibrate),
+      0x1018 -> RegisterMap.Entry.w(controlInput),
 
       0x1100 -> RegisterMap.Entry.rw(controlCommandHost),
       0x1104 -> RegisterMap.Entry.rw(controlCommandCore),
@@ -541,7 +546,14 @@ class HandheldTop[T <: Core](coreFactory: () => T, revision: Revision) extends M
   // Only pass input through when the core is focused
   val buttonFilter = Module(new ButtonFilter(new InputV0.Buttons))
   buttonFilter.io.enable := controlCoreFocus
-  buttonFilter.io.input := (buttonState.asUInt | controlButtonForce.asUInt).asTypeOf(new InputV0.Buttons)
+  // Swap A/B (firmware setting, written at every core start): the physical and the forced (gamepad) buttons.
+  val buttonsToCore = (buttonState.asUInt | controlButtonForce.asUInt).asTypeOf(new InputV0.Buttons)
+  val buttonsSwapped = WireDefault(buttonsToCore)
+  when (controlInput.swapAB) {
+    buttonsSwapped.a := buttonsToCore.b
+    buttonsSwapped.b := buttonsToCore.a
+  }
+  buttonFilter.io.input := buttonsSwapped
   coreInput := buttonFilter.io.output
 
   val vibrateEnabled = controlCoreFocus && controlVibrate.enable && !controlDock.docked

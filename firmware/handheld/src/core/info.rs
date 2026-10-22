@@ -26,6 +26,9 @@ pub struct CoreInfo {
     pub settings: Vec<CoreSetting>,
     pub bitstream: PathBuf,
     pub uses_cartridge: CoreCartridgeMode,
+    /// The bitstream has the platform register `REG_CTRL_INPUT` (Swap A/B): the firmware adds a "Swap A/B"
+    /// entry to the core's menu (see `add_swap_ab_setting`).
+    pub swap_ab: bool,
     /// Cheats chosen in the core's menu, from the game's `.cht` (see `core/cheats.rs`).
     pub cheats: Option<CoreCheats>,
 }
@@ -267,10 +270,14 @@ pub fn list_cores() -> Vec<CoreListEntry> {
 /// TODO: better error type?
 pub fn get_core(id: &str) -> Result<CoreInfo, String> {
     // Handle built-in cores.
-    match id {
-        "Game-Bub.GB" => return Ok(crate::bitstream::gameboy::Gameboy::get_core_info()),
-        "Game-Bub.GBA" => return Ok(crate::bitstream::gba::Gba::get_core_info()),
-        _ => {}
+    let built_in = match id {
+        "Game-Bub.GB" => Some(crate::bitstream::gameboy::Gameboy::get_core_info()),
+        "Game-Bub.GBA" => Some(crate::bitstream::gba::Gba::get_core_info()),
+        _ => None,
+    };
+    if let Some(mut core) = built_in {
+        add_swap_ab_setting(&mut core);
+        return Ok(core);
     }
 
     #[derive(Deserialize)]
@@ -293,6 +300,9 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
         #[serde(default)]
         #[expect(unused)]
         pub cartridge_selectable: bool,
+        /// The bitstreams have the platform register `REG_CTRL_INPUT` (Swap A/B).
+        #[serde(default)]
+        pub swap_ab: bool,
     }
 
     #[derive(Deserialize)]
@@ -364,18 +374,66 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
         }
     };
 
-    Ok(CoreInfo {
+    let mut core = CoreInfo {
         id: json_core.metadata.id,
         name: json_core.metadata.name,
         author: json_core.metadata.author,
         uses_cartridge: json_core.hardware.cartridge_enable,
+        swap_ab: json_core.hardware.swap_ab,
         is_built_in: false,
         files,
         bitstream: core_dir.join(bitstream),
         settings,
         core_dir,
         cheats: json_core.cheats,
-    })
+    };
+    add_swap_ab_setting(&mut core);
+    Ok(core)
+}
+
+/// Add the "Swap A/B" checkbox to the core's menu, if the core's bitstream has the register. It goes right
+/// before the core's Reset entry (see `is_reset_action`), so Reset stays the last entry; a core without one gets
+/// it at the end.
+///
+/// It writes bit 0 of the platform register `REG_CTRL_INPUT` (write-only, hence mask 0). The value is stored
+/// per core like the core's own settings: in the core's settings file for SD cores, in a KVS key for the
+/// built-in cores (see their `load_settings`). Default off.
+fn add_swap_ab_setting(core: &mut CoreInfo) {
+    if !core.swap_ab {
+        return;
+    }
+    if core.settings.iter().any(|s| s.id == super::SETTING_SWAP_AB) {
+        log::warn!(
+            "Core setting id {} is reserved for Swap A/B, not adding it",
+            super::SETTING_SWAP_AB
+        );
+        return;
+    }
+    let index = core
+        .settings
+        .iter()
+        .rposition(is_reset_action)
+        .unwrap_or(core.settings.len());
+    core.settings.insert(
+        index,
+        CoreSetting {
+            id: super::SETTING_SWAP_AB,
+            label: "Swap A/B".into(),
+            address: fpga::REG_CTRL_INPUT,
+            mask: 0,
+            default: 0,
+            inner: CoreSettingType::Checkbox { value: 1 },
+        },
+    );
+}
+
+/// The core's Reset entry: an action that writes a core register. Every other action in the cores' menus is
+/// handled by the firmware (save / load state, at the "not a register" address `0xFFFF_FFFF`) or transfers a
+/// file. Matched by kind rather than by label or address: the label differs ("Reset", "Reset Core") and so
+/// does the register (`0x2000` for most cores, `0x0` for Mega Drive).
+fn is_reset_action(setting: &CoreSetting) -> bool {
+    matches!(setting.inner, CoreSettingType::Action { file: None, .. })
+        && setting.address != 0xFFFF_FFFF
 }
 
 fn get_device_target() -> &'static str {

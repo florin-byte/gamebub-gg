@@ -62,6 +62,11 @@ mod command {
 
 pub const DIR_SDCARD: &str = "/sdcard/";
 pub const DIR_SETTINGS: &str = "/sdcard/settings/";
+
+/// Id of the "Swap A/B" entry the firmware adds to the menu of the cores that support it
+/// (`CoreInfo::swap_ab`). Reserved: a core's settings.json must not use it (cheats start at `0x8000`).
+pub const SETTING_SWAP_AB: u16 = 0x7FF0;
+
 pub const CORE_POLL_INTERVAL: Duration = Duration::from_millis(5);
 
 pub struct CoreManager {
