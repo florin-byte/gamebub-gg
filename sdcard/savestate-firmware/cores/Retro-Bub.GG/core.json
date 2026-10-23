@@ -7,7 +7,7 @@
 		"license": "GPL-3.0-only"
 	},
 	"hardware": {
-		"swap_ab": true
+		"button_remap": true
 	},
 	"bitstreams": [
 		{

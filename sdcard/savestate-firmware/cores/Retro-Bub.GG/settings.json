@@ -123,13 +123,22 @@
 			"load": true
 		},
 		{
-			"id": 11,
+			"id": 32753,
 			"label": "Swap A/B",
-			"address": "0xF1001018",
+			"address": "0xF1001208",
 			"mask": "0x0",
-			"type": "checkbox",
-			"value": "0x1",
-			"default": "0x0"
+			"type": "list",
+			"items": [
+				{
+					"label": "Off",
+					"value": "0x0B0A0908"
+				},
+				{
+					"label": "On",
+					"value": "0x0A0B0908"
+				}
+			],
+			"default": "0x0B0A0908"
 		},
 		{
 			"id": 15,
