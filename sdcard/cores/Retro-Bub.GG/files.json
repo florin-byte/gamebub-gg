@@ -23,6 +23,19 @@
 			"initialize": true,
 			"address": "0x40000000",
 			"max_size": "0x8000"
+		},
+		{
+			"id": 3,
+			"label": "States",
+			"extensions": [
+				"ggstates"
+			],
+			"dependent_on_0": true,
+			"optional": true,
+			"initialize": true,
+			"address": "0x31000000",
+			"exact_size": "0x60000",
+			"max_size": "0x60000"
 		}
 	]
 }

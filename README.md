@@ -50,26 +50,28 @@ looks like Sharp Bilinear, Colors does nothing and Swap A/B shows up in the menu
   Start is the Master System Pause button, like on the real console. Game Gear and Master System force one palette,
   for a hack or a dump that is not in the list. Reset the game after you change it.
 - Swap A/B (right before Reset): swaps A and B for this core only, at once, without a restart.
-  It's off by default and every core keeps its own value. The menus are not swapped. With Settings > Dock > Swap A/B
-  and X/Y also on, a docked controller has A and B normal again (X and Y stay swapped). I didn't test it with a dock.
-  With the stock firmware it should work the same, the entry is in its `settings.json`. I tested that json on rev2
-  with my firmware, not with the stock one and not on rev4.
+  It's off by default and every core keeps its own value. The menus are not swapped. With the new framework-v2
+  bitstream, this list applies to the handheld buttons; docked gamepads keep their separate Dock setting.
+  The new mapping has not been tested on the console yet.
 - Reset.
 
 ## Save states
 
-The save states are in the bitstream (the MiSTer save state engine), but they need fw changes as well, to move the
-state between the core and the SD card while the game runs. Eli's firmware does not have that, so on the stock
-firmware there are no save states. The `.sav` battery saves work anyway.
+This branch prepares the JSON files for a new unified bitstream. That bitstream is not released yet and its
+RTL has not been ported into this public repo yet. Use a released archive until the matching bitstream is
+available. I have not tested the new stock save-state path on hardware yet.
 
-- Stock firmware: use `sdcard/cores/Retro-Bub.GG`. Everything works except save states. The other folder
-  works with it too: the State file is marked read only, so the stock firmware doesn't try to write it at exit and
-  there is no error. State Slot, Save State and Load State are in the menu but do nothing there. Swap A/B works in
-  both folders, with both firmwares. I didn't test the other folder on the stock firmware yet, I only read Eli's code.
-- My firmware (`firmware/handheld/`): use `sdcard/savestate-firmware/cores/Retro-Bub.GG`. Then you have State Slot,
-  Save State and Load State (`.ss0` to `.ss3` next to the rom). I tested it on rev2. For rev4 it
-  compiles (`cargo check --features rev4`) but nobody ran it on a rev4 yet. Build it like the stock one (ESP-IDF
-  5.4.3, `cargo build --release --features rev4`).
+- Stock firmware (1.1.0-beta3): use `sdcard/cores/Retro-Bub.GG` with the matching new bitstream. State Slot, Save State
+  and Load State use four slots in `<rom>.ggstates` (384 KiB), loaded when the game starts and written when you
+  exit the game normally. **States saved during the session are lost if you power off or the game crashes
+  before a normal exit.** An empty slot is refused without restoring it.
+- My firmware with on-demand files: use `sdcard/savestate-firmware/cores/Retro-Bub.GG`. States are still
+  written immediately and atomically to `<rom>.ss0` through `.ss3`. The payload format of these individual
+  files is unchanged. The new stock container and the individual files are separate; there is no automatic
+  conversion between them.
+
+Both folders use the same new bitstream. The `.sav` battery-save configuration is unchanged. The notes below
+explain the existing on-demand method; earlier hardware results apply to that method, not the new stock path.
 
 ## How the save states work in my firmware
 
@@ -103,23 +105,15 @@ In the json files it looks like this (see `sdcard/savestate-firmware/`):
 
 ## How Swap A/B works
 
-The swap is in the FPGA, not in the firmware. The platform (`HandheldTop.scala`) has a new write-only register,
-`0x1018` (`REG_CTRL_INPUT` in the firmware), bit 0 swaps A and B on the way to the core, for the console's buttons
-and for a docked gamepad. The firmware reads the buttons before the swap, so the menus are never swapped.
+The new JSONs use a two-choice list at `0xF1001208`: Off writes `0x0B0A0908`, On writes `0x0A0B0908`.
+The new ID is `0x7FF1`; the old checkbox's 0/1 values are not reused. `hardware.button_remap` lets my migrated
+firmware add the list when JSON does not already contain it. The explicit entry works with the stock
+firmware too. It stays immediately before Reset.
 
-The firmware adds the "Swap A/B" checkbox itself (`core/info.rs`, `add_swap_ab_setting`), right before the core's
-Reset entry, only when the core says its bitstream has the register: `"hardware": {"swap_ab": true}` in
-`core.json`. The setting id `0x7FF0` is reserved for it. The value is saved per core like the other settings, in
-`/sdcard/settings/<core id>.json`. Eli's firmware ignores the unknown `swap_ab` field (serde skips unknown fields),
-so the same `core.json` works there. For the stock firmware the entry is written in
-`sdcard/cores/Retro-Bub.GG/settings.json` instead: a plain checkbox at `0xF1001018` (mask 0), which any firmware
-writes to the FPGA like the other settings. When a `settings.json` already has an entry for that register, my
-firmware does not add a second one. A bitstream built before this change has nothing at
-`0x1018`, so don't put `swap_ab` in a core.json that goes with such a bitstream.
+These JSONs require the matching framework-v2 bitstream. In that framework `0xF1001018` is video darken,
+not Swap A/B. Physical button mapping still needs console confirmation. The new remap applies to the
+handheld buttons; docked gamepads keep their separate Dock > Swap A/B and X/Y setting. Menus are unchanged.
 
-The built-in Game Boy and GBA cores don't show it yet (`swap_ab: false`, their bitstreams in the firmware don't have
-the register). For them the value would go in the KVS (`gb-swap-ab`, `gba-swap-ab`). Their "Reset Core" entry is
-now the last one in the menu, like in the other cores.
 
 ## How the colors work
 
