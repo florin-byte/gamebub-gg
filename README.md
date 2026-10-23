@@ -21,7 +21,7 @@ I tested the new remap, setting persistence and on-demand save/load on my rev2 o
 Nearest and Colors were tested on rev2 on 22 Oct (Colors with Out Run Europa).
 The new rev4 build meets timing, but has not been tested on a rev4 console yet.
 Stock save states are ready for other users to test; I have not tested that path on stock firmware.
-These packages are prepared locally and are not published yet.
+Use the archive for your board and copy the JSON files together with the bitstream.
 
 ## Install
 
