@@ -277,13 +277,13 @@ impl Gba {
             is_built_in: true,
             core_dir: PathBuf::new(),
             uses_cartridge: CoreCartridgeMode::IfSelected,
-            // Swap A/B: set to true once gba.bit.hs is rebuilt with the platform register REG_CTRL_INPUT.
-            swap_ab: false,
+            // Requires the matching framework-v2 system_data packaged with this firmware.
+            button_remap: true,
             files: [
                 CoreFile {
                     id: FILE_CONFIG_OVERRIDE,
                     label: "Config Override".try_into().unwrap(),
-                    extensions: [".json".try_into().unwrap()].into_iter().collect(),
+                    extensions: ["json".try_into().unwrap()].into_iter().collect(),
                     filename: None,
 
                     optional: true,
@@ -305,7 +305,8 @@ impl Gba {
                     extensions: ["gba".try_into().unwrap()].into_iter().collect(),
                     filename: None,
 
-                    optional: true,
+                    // Note: actually optional, with the Run Cartridge option.
+                    optional: false,
                     read_only: true,
                     user_selected: true,
                     dependent_on_0: false,
@@ -698,10 +699,10 @@ impl CoreHandler for Gba {
                 SETTING_GAME_BOY_PLAYER,
                 kvs::keys::GBA_ENABLE_GBP.get().unwrap() as u32,
             ),
-            // Used only if the menu has the entry (CoreInfo::swap_ab).
+            // Used only if the menu has the entry (CoreInfo::button_remap).
             (
                 crate::core::SETTING_SWAP_AB,
-                kvs::keys::GBA_SWAP_AB.get().unwrap() as u32,
+                fpga::button_remap_ab_value(kvs::keys::GBA_BUTTON_REMAP.get().unwrap()),
             ),
         ]
     }
@@ -724,7 +725,7 @@ impl CoreHandler for Gba {
             }
             crate::core::SETTING_SWAP_AB => {
                 // The core manager writes the register; only store the value here.
-                kvs::keys::GBA_SWAP_AB.set(&(value != 0));
+                kvs::keys::GBA_BUTTON_REMAP.set(&fpga::button_remap_ab_enabled(value));
             }
             _ => {}
         }

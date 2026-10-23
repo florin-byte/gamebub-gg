@@ -1,6 +1,7 @@
 package net.gamebub.core.sms
 
 import chisel3._
+import net.gamebub.core.StockSaveStateSlots
 import chisel3.util._
 import lib.mem.{MemoryInterface, MemoryMap, PipelineInterfaceBridge, PipelineMemoryArbiter, PipelineMemoryInterface, RegisterMap}
 import lib.mem.sdram.BurstSdramController
@@ -66,6 +67,9 @@ object HandheldSms {
   /** Save state (file 2): the SMS_MiSTer save-state slot, 0x3000 64-bit words. It is kept in SDRAM at
     * StateSdramBase (host address 0x3000_0000 + StateSdramBase), where savestates.sv's slot 0 (DDR word
     * address StateWordBase) is mapped. */
+  val FileStockStates = 3
+  val StockSlotStride = 0x18000
+  val StockStateBytes = 4 * StockSlotStride
   val FileState = 2
   val StateBytes = 0x3000 * 8
   val StateSdramBase = 0x0100_0000
@@ -246,11 +250,41 @@ class SmsCore(gameGear: Boolean) extends Module {
   io.host.mem.unsafe :<>= memoryMap.unsafe
   memoryMap.writeStrobe := "b1111".U
 
+  // Unified bitstream: file 2 remains on-demand slot 0; file 3 is a native four-slot image.
+  val regStockLoaded = RegInit(false.B)
+  val regStockFileOpen = RegInit(false.B)
+  val regStockSlot = RegInit(0.U(2.W))
+  val regEngineSlot = RegInit(0.U(2.W))
+  val stockRequest = WireDefault(false.B)
+  val stockLoad = WireDefault(false.B)
+  val stateEngineBusy = Wire(Bool())
+  val stateEngineDone = WireDefault(false.B)
+  val stateEngineOk = WireDefault(true.B)
+  val hostCommandBusy = Wire(Bool())
+  val stock = Module(new StockSaveStateSlots(StateSdramBase, StockSlotStride,
+    sms = true, timeoutCycles = (mmcmVcoHz / 22).toInt * 2))
+  stock.io.request := stockRequest
+  stock.io.load := stockLoad
+  stock.io.slot := regStockSlot
+  stock.io.available := regRomLoaded && regStockLoaded && !regStockFileOpen && !regCoreReset
+  stock.io.blocked := stateEngineBusy || hostCommandBusy || io.host.commandHost.request
+  stock.io.gameId := regGameId
+  stock.io.engineDone := stateEngineDone
+  stock.io.engineOk := stateEngineOk
+
   registerInterface <> RegisterMap(
     addressWidth = 16,
     dataWidth = 32,
     entries = Seq(
       0x0000 -> RegisterMap.Entry.rw(configReg),
+      0x0014 -> RegisterMap.Entry(32,
+        read = RegisterMap.ReadFn((_: Bool) => stock.io.status),
+        write = RegisterMap.WriteFn((write: Bool, data: UInt) => when (write && data(1, 0).orR) {
+          stockRequest := true.B
+          stockLoad := data(1)
+        })),
+      0x0018 -> RegisterMap.Entry.rw(regStockSlot),
+      0x001C -> RegisterMap.Entry.r(stock.io.status),
       0x1000 -> RegisterMap.Entry.rw(statRegRomReads),
       0x1004 -> RegisterMap.Entry.rw(statRegRomSlowReads),
       0x1008 -> RegisterMap.Entry.rw(statRegRomMaxLatency),
@@ -289,7 +323,7 @@ class SmsCore(gameGear: Boolean) extends Module {
   }
 
   // SDRAM: host (with the replay tap) and ROM reads
-  val sdramArbiter = Module(new PipelineMemoryArbiter(addressWidth = 25, dataWidth = 32, n = 3))
+  val sdramArbiter = Module(new PipelineMemoryArbiter(addressWidth = 25, dataWidth = 32, n = 4))
   val holdHostWrite = regReplayActive && regReplayBytes =/= 0.U
   locally {
     val bridge = Module(new PipelineInterfaceBridge(addressWidth = 25, dataWidth = 32))
@@ -314,6 +348,8 @@ class SmsCore(gameGear: Boolean) extends Module {
   // Commands
   //////////////////////////////////
   val commandHostState = RegInit(CommandState.idle)
+  hostCommandBusy := commandHostState === CommandState.busy
+  val regStockReadPending = RegInit(false.B)
   val regCommandHost = Reg(Vec(4, UInt(32.W)))
   val regRomEndPending = RegInit(false.B)
   commandInterface <> RegisterMap(
@@ -349,15 +385,24 @@ class SmsCore(gameGear: Boolean) extends Module {
       } .elsewhen (command === HostV0.CommandNotifyFocus.U) {
         regCoreFocus := regCommandHost(1)(0)
       } .elsewhen (command === HostV0.CommandFileWriteStart.U) {
-        when (fileId === FileRom.U) {
+        when (fileId === FileState.U && (stock.io.busy || stateEngineBusy || regStockFileOpen)) {
+          commandHostState := CommandState.error
+        } .elsewhen (fileId === FileRom.U) {
           regReplayActive := true.B
           regRomLoaded := false.B
+          regStockLoaded := false.B
           regHeaderRegion := 0.U
           regGameId := "h811C9DC5".U
           regSmsColorsAuto := false.B
           romLoadStart := true.B
         } .elsewhen (fileId === FileSave.U) {
           regSaveDirty := false.B
+        } .elsewhen (fileId === FileStockStates.U) {
+          when (stock.io.busy || stateEngineBusy) { commandHostState := CommandState.error }
+            .otherwise {
+              regStockFileOpen := true.B
+              regStockLoaded := false.B
+            }
         }
       } .elsewhen (command === HostV0.CommandFileWriteEnd.U) {
         when (fileId === FileRom.U) {
@@ -369,19 +414,37 @@ class SmsCore(gameGear: Boolean) extends Module {
           regRomSize := size
           regRomEndPending := true.B
           commandHostState := CommandState.busy
+        } .elsewhen (fileId === FileStockStates.U) {
+          val valid = regStockFileOpen && regCommandHost(2) === StockStateBytes.U
+          regStockFileOpen := false.B
+          regStockLoaded := valid
+          commandHostState := Mux(valid, CommandState.done, CommandState.error)
+          // Importing the container never restores a slot automatically.
         } .elsewhen (fileId === FileState.U) {
           // The host has written a state into SDRAM: restore it.
-          regStateLoad := regRomLoaded
-          commandHostState := Mux(regRomLoaded, CommandState.busy, CommandState.error)
+          when (regRomLoaded && !stock.io.busy && !stateEngineBusy && !regStockFileOpen) {
+            regEngineSlot := 0.U
+            regStateLoad := true.B
+          }
+          commandHostState := Mux(regRomLoaded && !stock.io.busy && !stateEngineBusy && !regStockFileOpen, CommandState.busy, CommandState.error)
         }
       } .elsewhen (command === HostV0.CommandFileReadStart.U) {
-        when (fileId === FileSave.U) {
+        when (fileId === FileStockStates.U) {
+          when (!regStockLoaded || regStockFileOpen) { commandHostState := CommandState.error }
+            .elsewhen (stock.io.busy || stateEngineBusy) {
+              regStockReadPending := true.B
+              commandHostState := CommandState.busy
+            } .otherwise { regCommandHost(0) := StockStateBytes.U }
+        } .elsewhen (fileId === FileSave.U) {
           // Nothing to save unless the game wrote its cartridge RAM.
           regCommandHost(0) := Mux(regSaveDirty, SaveBytes.U, 0.U)
         } .elsewhen (fileId === FileState.U) {
           // Save the state into SDRAM; the host reads it once the command is done.
-          regStateSave := regRomLoaded
-          commandHostState := Mux(regRomLoaded, CommandState.busy, CommandState.error)
+          when (regRomLoaded && !stock.io.busy && !stateEngineBusy && !regStockFileOpen) {
+            regEngineSlot := 0.U
+            regStateSave := true.B
+          }
+          commandHostState := Mux(regRomLoaded && !stock.io.busy && !stateEngineBusy && !regStockFileOpen, CommandState.busy, CommandState.error)
         }
       } .elsewhen (command(15, 8) === 0x03.U) {
         // Other file commands: nothing to do.
@@ -392,8 +455,10 @@ class SmsCore(gameGear: Boolean) extends Module {
   } .otherwise {
     commandHostState := CommandState.idle
     // The host gave up waiting (timeout): stop requesting. An operation already started completes.
-    regStateSave := false.B
-    regStateLoad := false.B
+    when (!stock.io.busy) {
+      regStateSave := false.B
+      regStateLoad := false.B
+    }
   }
   // CRC-32 of the ROM as it is replayed, without the copier header (Game Gear only).
   val romCrc = Option.when(gameGear) {
@@ -414,6 +479,18 @@ class SmsCore(gameGear: Boolean) extends Module {
     commandHostState := CommandState.done
   }
   io.host.commandCore.request := false.B
+  when (!io.host.commandHost.request) { regStockReadPending := false.B }
+  when (regStockReadPending && !stock.io.busy && !stateEngineBusy && io.host.commandHost.request) {
+    regStockReadPending := false.B
+    regCommandHost(0) := StockStateBytes.U
+    commandHostState := CommandState.done
+  }
+  locally {
+    val bridge = Module(new PipelineInterfaceBridge(addressWidth = 25, dataWidth = 32))
+    bridge.io.source <> stock.io.mem
+    bridge.io.dest <> sdramArbiter.io.initiator(3)
+  }
+
 
   /** All bits below the highest set bit, set: the address mask of a ROM of size `x + 1`. */
   private def smear(x: UInt): UInt = {
@@ -428,8 +505,15 @@ class SmsCore(gameGear: Boolean) extends Module {
   // a clean point and frozen it (at most about a frame), and until it releases it again.
   val stateFreeze = Wire(Bool())
   val stateBusy = regStateSave || regStateLoad || regStateFrozen || stateFreeze
-  val running = regRomLoaded && !regCoreReset && (regCoreFocus || stateBusy)
-  val coreReset = regCoreReset || regCoreResetOnce || !regRomLoaded
+  stateEngineBusy := stateBusy
+  when (stock.io.start) {
+    regEngineSlot := stock.io.activeSlot
+    regStateSave := !stock.io.isLoad
+    regStateLoad := stock.io.isLoad
+  }
+  val running = regRomLoaded && (!regCoreReset || stock.io.busy) && (regCoreFocus || stateBusy)
+  // A stock action already in flight must finish even if exit sends CORE_HALT first.
+  val coreReset = (regCoreReset && !stock.io.busy) || regCoreResetOnce || !regRomLoaded
 
   // Clock enables, as SMS.sv: VDP 1/5, pixel 1/10, CPU 1/15, sprites 1/2 of the system clock. They
   // stop while the core is paused.
@@ -525,7 +609,7 @@ class SmsCore(gameGear: Boolean) extends Module {
   ss.reset_n := !coreReset
   ss.ss_save := regStateSave
   ss.ss_load := regStateLoad
-  ss.ss_slot := 0.U
+  ss.ss_slot := regEngineSlot
   ss.ss_bios_mode := false.B
   ss.ss_game_id := regGameId
   ss.vblank := video.io.vblank
@@ -602,8 +686,9 @@ class SmsCore(gameGear: Boolean) extends Module {
     regStateSave := false.B
     regStateLoad := false.B
   } .elsewhen (regStateFrozen) {
+    stateEngineDone := true.B
     regStateFrozen := false.B
-    when (commandHostState === CommandState.busy) {
+    when (commandHostState === CommandState.busy && !regStockReadPending) {
       commandHostState := CommandState.done
       regCommandHost(0) := StateBytes.U // read start: size of the state file
     }

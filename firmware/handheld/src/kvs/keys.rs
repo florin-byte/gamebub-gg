@@ -27,8 +27,8 @@ pub static DMG_COLOR_PALETTE: KvsKey<i32> = KvsKey::new_with_default("dmg-colors
 /// CGB color profile
 pub static CGB_COLOR_PROFILE: KvsKey<i32> = KvsKey::new_with_default("cgb-colors", 1);
 
-/// Game Boy core menu: whether A and B are swapped for the core (the menus are not swapped).
-pub static GB_SWAP_AB: KvsKey<bool> = KvsKey::new_with_default("gb-swap-ab", false);
+/// Framework-v2 Game Boy button remap. Legacy gb-swap-ab is deliberately not reused.
+pub static GB_BUTTON_REMAP: KvsKey<bool> = KvsKey::new_with_default("gb-btn-remap", false);
 
 /// Whether to skip GBA boot animation.
 pub static GBA_SKIP_BOOT_ANIM: KvsKey<bool> = KvsKey::new_with_default("gba-no-anim", false);
@@ -39,8 +39,8 @@ pub static GBA_COLOR_PROFILE: KvsKey<i32> = KvsKey::new_with_default("gba-colors
 /// Whether to enable Game Boy Player functionality
 pub static GBA_ENABLE_GBP: KvsKey<bool> = KvsKey::new_with_default("gba-enable-gbp", true);
 
-/// GBA core menu: whether A and B are swapped for the core (the menus are not swapped).
-pub static GBA_SWAP_AB: KvsKey<bool> = KvsKey::new_with_default("gba-swap-ab", false);
+/// Framework-v2 GBA button remap. Legacy gba-swap-ab is deliberately not reused.
+pub static GBA_BUTTON_REMAP: KvsKey<bool> = KvsKey::new_with_default("gba-btn-remap", false);
 
 /// Startup action.
 pub static STARTUP_ACTION: KvsKey<i32> = KvsKey::new_with_default("startup-action", 0);
@@ -88,8 +88,8 @@ pub fn flush_all() {
     GBA_BIOS_WARNING.flush();
     LAST_CORE.flush();
     DOCK_SWAP_ABXY.flush();
-    GB_SWAP_AB.flush();
-    GBA_SWAP_AB.flush();
+    GB_BUTTON_REMAP.flush();
+    GBA_BUTTON_REMAP.flush();
     UTC_OFFSET.flush();
     DST_RULE.flush();
     TIME_24H.flush();

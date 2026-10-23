@@ -18,7 +18,7 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/../.." && pwd)"
-OUT="$REPO/build/sms-sim"
+OUT="${SIM_OUT:-$REPO/build/sms-sim}"
 VENDOR="$REPO/fpga/vendor/sms_mister/rtl"
 SIM="$REPO/fpga/sim/sms"
 
@@ -61,7 +61,7 @@ build() {
 core() {
     [ -f "$OUT/system_sim.v" ] || build
     (cd "$REPO/fpga" && ./mill -i --no-build-lock root.runMain net.gamebub.core.sms.SimSms \
-        --target-dir="$OUT/core") > "$OUT/core-mill.log" 2>&1 \
+        --target-dir="$OUT/core" ${SIM_GG:+--game-gear}) > "$OUT/core-mill.log" 2>&1 \
         || { echo "Elaboration failed, see $OUT/core-mill.log"; exit 1; }
     # GHDL converts `system` with its generics fixed (the values the core passes: MAX_SPPL = 63,
     # EXTERNAL_BIOS = 0), so the converted module has no parameters.

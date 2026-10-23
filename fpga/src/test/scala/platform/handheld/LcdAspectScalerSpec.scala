@@ -150,10 +150,25 @@ class LcdAspectScalerSpec extends AnyFunSuite {
     run(Seq(VideoScalerV0.Mode(0, 0, 160, 144)), 0, VideoScalerV0.FilterSharpBilinear, fbWidth = 160, fbHeight = 144)
   }
 
+  // Lynx (net.gamebub.core.lynx.HandheldLynx): the screen upright or rotated in a 160x160 framebuffer.
+  val lynxModes = Seq(VideoScalerV0.Mode(0, 29, 160, 102), VideoScalerV0.Mode(29, 0, 102, 160))
+
+  test("geometry: Lynx modes on 480x320 at exactly 3x and 2x") {
+    val g = lynxModes.map(LcdAspectScaler.geometry(_, screenWidth, screenHeight, 0))
+    assert(g.map(x => (x.width, x.height, x.scaleX)) == Seq((480, 306, 3.0), (204, 320, 2.0)))
+  }
+  test("Lynx 160x102, 3x: every pixel a source pixel") {
+    run(lynxModes, 0, VideoScalerV0.FilterSharpBilinear, fbWidth = 160, fbHeight = 160, exact = true)
+  }
+  test("Lynx rotated 102x160, 2x: every pixel a source pixel") {
+    run(lynxModes, 1, VideoScalerV0.FilterSharpBilinear, fbWidth = 160, fbHeight = 160, exact = true)
+  }
+
   // rev4: an 800x480 panel with the picture centered on column 372 (HandheldTop's displayOffsetX = -28). Every
-  // mode must stay on the panel.
-  test("geometry: the SMS and Game Gear modes on the rev4 panel (800x480, offset -28)") {
-    for (m <- smsModes ++ Seq(VideoScalerV0.Mode(0, 0, 160, 144))) {
+  // mode must stay on the panel (the Lynx at the full height was 752 wide and started at column -4).
+  test("geometry: every mode on the rev4 panel (800x480, offset -28)") {
+    val all = smsModes ++ Seq(VideoScalerV0.Mode(0, 0, 160, 144)) ++ lynxModes
+    for (m <- all) {
       val g = LcdAspectScaler.geometry(m, 800, 480, -28)
       assert(g.offsetX >= 0 && g.offsetX + g.width <= 800 && g.offsetY >= 0 && g.offsetY + g.height <= 480, s"$m: $g")
       assert(g.offsetX + g.width / 2 - 372 <= 1 && 372 - (g.offsetX + g.width / 2) <= 1, s"$m not centered on 372: $g")
@@ -177,5 +192,8 @@ class LcdAspectScalerSpec extends AnyFunSuite {
   }
   test("rev4: SMS 224 lines, Nearest") {
     run(smsModes, 1, VideoScalerV0.FilterNearest, panel = rev4, nearest = true)
+  }
+  test("Lynx 160x102, 3x, Nearest: every pixel a source pixel") {
+    run(lynxModes, 0, VideoScalerV0.FilterNearest, fbWidth = 160, fbHeight = 160, exact = true, nearest = true)
   }
 }

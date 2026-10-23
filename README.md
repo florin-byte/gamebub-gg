@@ -2,7 +2,7 @@
 
 This is the Sega Game Gear core for the [Game Bub](https://github.com/elipsitz/gamebub), loaded from the SD card. It
 is the MiSTer core ([SMS_MiSTer](https://github.com/MiSTer-devel/SMS_MiSTer)) glued to Eli's Game Bub framework
-(1.1.0-beta2). It is not an official Game Bub core, I just ported it.
+(1.1.0-beta3). It is not an official Game Bub core, I just ported it.
 
 The repo is my fork of the Game Bub code, cut down to what the Game Gear needs: the FPGA framework, the core, the
 firmware and the scripts to build it. The same sources also build the Master System / SG-1000 version of the core
@@ -10,24 +10,18 @@ firmware and the scripts to build it. The same sources also build the Master Sys
 
 If you only want to play, take the zip from the [releases](../../releases), you don't need to build anything.
 
-## New since v0.1.0 (not released yet)
+## Update prepared on 23 Oct 2026
 
-- Scaling has a fourth option, Nearest.
-- Colors: Auto / Game Gear / Master System, for the Game Gear games that run in Master System mode.
-- Swap A/B in the core's menu.
+- Eli's beta3 framework and button remapping. Copy the new JSON files together with the bitstream.
+- One bitstream for both save-state methods: my firmware writes individual slots immediately; stock beta3
+  uses a four-slot file written when the game exits normally.
+- Nearest scaling, the Game Gear / Master System Colors setting, and per-core Swap A/B are kept.
 
-I tested all three on my rev2 console on 22 Oct 2026 (Colors only with Out Run Europa). rev4 is not tested yet. The
-bitstreams for this are not uploaded yet, the ones in the v0.1.0 release don't have these features. Build the
-bitstream yourself (see [Building the bitstream](#building-the-bitstream)) or wait for the next release. The json
-files in `sdcard/` are already the new ones, so use them with a new bitstream: with the v0.1.0 bitstream, Nearest
-looks like Sharp Bilinear, Colors does nothing and Swap A/B shows up in the menu but does not swap.
-
-## Does it work?
-
-- rev2: yes, this is what I use myself. Games, the `.sav` battery saves, the scaler and save states (with my
-  firmware) work.
-- rev4: yes, tested by other users, but not by me, because I don't own a rev4 Game Bub, only a rev2 one. The
-  bitstream in the release is built on my machine with Vivado 2025.2 (timing is met, no critical warnings).
+I tested the new remap, setting persistence and on-demand save/load on my rev2 on 23 Oct.
+Nearest and Colors were tested on rev2 on 22 Oct (Colors with Out Run Europa).
+The new rev4 build meets timing, but has not been tested on a rev4 console yet.
+Stock save states are ready for other users to test; I have not tested that path on stock firmware.
+These packages are prepared locally and are not published yet.
 
 ## Install
 
@@ -52,14 +46,14 @@ looks like Sharp Bilinear, Colors does nothing and Swap A/B shows up in the menu
 - Swap A/B (right before Reset): swaps A and B for this core only, at once, without a restart.
   It's off by default and every core keeps its own value. The menus are not swapped. With the new framework-v2
   bitstream, this list applies to the handheld buttons; docked gamepads keep their separate Dock setting.
-  The new mapping has not been tested on the console yet.
+  I tested the handheld mapping on rev2 on 23 Oct; docked gamepads were not tested.
 - Reset.
 
 ## Save states
 
-This branch prepares the JSON files for a new unified bitstream. That bitstream is not released yet and its
-RTL has not been ported into this public repo yet. Use a released archive until the matching bitstream is
-available. I have not tested the new stock save-state path on hardware yet.
+The unified RTL and both sets of JSON files are in this branch. Use the matching new bitstream; older
+bitstreams do not support the new register map or the stock container. I tested the on-demand path on rev2.
+The stock firmware path is not hardware-tested by me and is left for other users to test.
 
 - Stock firmware (1.1.0-beta3): use `sdcard/cores/Retro-Bub.GG` with the matching new bitstream. State Slot, Save State
   and Load State use four slots in `<rom>.ggstates` (384 KiB), loaded when the game starts and written when you
@@ -70,8 +64,8 @@ available. I have not tested the new stock save-state path on hardware yet.
   files is unchanged. The new stock container and the individual files are separate; there is no automatic
   conversion between them.
 
-Both folders use the same new bitstream. The `.sav` battery-save configuration is unchanged. The notes below
-explain the existing on-demand method; earlier hardware results apply to that method, not the new stock path.
+Both folders use the same new bitstream. Existing ROM, BIOS and ordinary save definitions are unchanged.
+The hardware results above apply to the on-demand method, not the new stock path.
 
 ## How the save states work in my firmware
 
@@ -111,7 +105,7 @@ firmware add the list when JSON does not already contain it. The explicit entry 
 firmware too. It stays immediately before Reset.
 
 These JSONs require the matching framework-v2 bitstream. In that framework `0xF1001018` is video darken,
-not Swap A/B. Physical button mapping still needs console confirmation. The new remap applies to the
+not Swap A/B. I tested physical A/B mapping on rev2 on 23 Oct. The new remap applies to the
 handheld buttons; docked gamepads keep their separate Dock > Swap A/B and X/Y setting. Menus are unchanged.
 
 
@@ -182,7 +176,7 @@ for every file: `VM2413` has to be read as VHDL-93 (it uses `Release`, which is 
   Genesis Plus GX). Everything is listed in `THIRD-PARTY.md`.
 
 Thanks to Ben for the original Master System core, to the SMS_MiSTer people, to Eli for the Game Bub, to
-minuitfranck and Jeremy O'Brien for the parts I took from their ports, to Toady M for testing on rev4, and to Eke-Eke
+minuitfranck and Jeremy O'Brien for the parts I took from their ports, to Toady M for Nearest scaling and rev4 testing, to Dane for asking for Swap A/B, and to Eke-Eke
 for Genesis Plus GX, where the list of Game Gear games in Master System mode comes from (non-commercial license, see
 `THIRD-PARTY.md`).
 

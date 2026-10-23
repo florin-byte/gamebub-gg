@@ -26,9 +26,9 @@ pub struct CoreInfo {
     pub settings: Vec<CoreSetting>,
     pub bitstream: PathBuf,
     pub uses_cartridge: CoreCartridgeMode,
-    /// The bitstream has the platform register `REG_CTRL_INPUT` (Swap A/B): the firmware adds a "Swap A/B"
-    /// entry to the core's menu (see `add_swap_ab_setting`).
-    pub swap_ab: bool,
+    /// The bitstream has framework-v2 button-remap registers: add a "Swap A/B" list
+    /// to the core's menu (see `add_swap_ab_setting`). Legacy hardware.swap_ab is ignored.
+    pub button_remap: bool,
     /// Cheats chosen in the core's menu, from the game's `.cht` (see `core/cheats.rs`).
     pub cheats: Option<CoreCheats>,
 }
@@ -300,9 +300,9 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
         #[serde(default)]
         #[expect(unused)]
         pub cartridge_selectable: bool,
-        /// The bitstreams have the platform register `REG_CTRL_INPUT` (Swap A/B).
+        /// The bitstreams have framework-v2 button-remap registers.
         #[serde(default)]
-        pub swap_ab: bool,
+        pub button_remap: bool,
     }
 
     #[derive(Deserialize)]
@@ -379,7 +379,7 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
         name: json_core.metadata.name,
         author: json_core.metadata.author,
         uses_cartridge: json_core.hardware.cartridge_enable,
-        swap_ab: json_core.hardware.swap_ab,
+        button_remap: json_core.hardware.button_remap,
         is_built_in: false,
         files,
         bitstream: core_dir.join(bitstream),
@@ -391,19 +391,15 @@ pub fn get_core(id: &str) -> Result<CoreInfo, String> {
     Ok(core)
 }
 
-/// Add the "Swap A/B" checkbox to the core's menu, if the core's bitstream has the register. It goes right
-/// before the core's Reset entry (see `is_reset_action`), so Reset stays the last entry; a core without one gets
-/// it at the end.
-///
-/// It writes bit 0 of the platform register `REG_CTRL_INPUT` (write-only, hence mask 0). The value is stored
-/// per core like the core's own settings: in the core's settings file for SD cores, in a KVS key for the
-/// built-in cores (see their `load_settings`). Default off.
+/// Add the framework-v2 "Swap A/B" list before Reset, unless JSON already defines the remap.
+/// The register is write-only (mask 0); Off must write the identity map, not zero.
+/// A new ID and new built-in KVS keys keep legacy checkbox values out of this register.
 fn add_swap_ab_setting(core: &mut CoreInfo) {
-    if !core.swap_ab {
+    if !core.button_remap {
         return;
     }
     // A settings.json made for the stock firmware can have its own entry for the register: keep only that one.
-    if core.settings.iter().any(|s| s.address == fpga::REG_CTRL_INPUT) {
+    if core.settings.iter().any(|s| s.address == fpga::REG_CTRL_BUTTON_REMAP_AB) {
         return;
     }
     if core.settings.iter().any(|s| s.id == super::SETTING_SWAP_AB) {
@@ -423,10 +419,24 @@ fn add_swap_ab_setting(core: &mut CoreInfo) {
         CoreSetting {
             id: super::SETTING_SWAP_AB,
             label: "Swap A/B".into(),
-            address: fpga::REG_CTRL_INPUT,
+            address: fpga::REG_CTRL_BUTTON_REMAP_AB,
             mask: 0,
-            default: 0,
-            inner: CoreSettingType::Checkbox { value: 1 },
+            default: fpga::BUTTON_REMAP_AB_OFF,
+            inner: CoreSettingType::List {
+                items: [
+                    CoreSettingListItem {
+                        label: "Off".into(),
+                        value: fpga::BUTTON_REMAP_AB_OFF,
+                    },
+                    CoreSettingListItem {
+                        label: "On".into(),
+                        value: fpga::BUTTON_REMAP_AB_ON,
+                    },
+                ]
+                .into_iter()
+                .collect(),
+                file_slots: None,
+            },
         },
     );
 }

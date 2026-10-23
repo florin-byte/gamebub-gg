@@ -129,8 +129,8 @@ impl Gameboy {
             is_built_in: true,
             core_dir: PathBuf::new(),
             uses_cartridge: CoreCartridgeMode::IfSelected,
-            // Swap A/B: set to true once gameboy.bit.hs is rebuilt with the platform register REG_CTRL_INPUT.
-            swap_ab: false,
+            // Requires the matching framework-v2 system_data packaged with this firmware.
+            button_remap: true,
             files: [
                 CoreFile {
                     id: SETTING_RESET,
@@ -140,7 +140,8 @@ impl Gameboy {
                         .collect(),
                     filename: None,
 
-                    optional: true,
+                    // Note: actually optional, with the Run Cartridge option.
+                    optional: false,
                     read_only: true,
                     user_selected: true,
                     dependent_on_0: false,
@@ -516,10 +517,10 @@ impl CoreHandler for Gameboy {
                 SETTING_GB_COLOR_PALETTE,
                 kvs::keys::DMG_COLOR_PALETTE.get().unwrap() as u32,
             ),
-            // Used only if the menu has the entry (CoreInfo::swap_ab).
+            // Used only if the menu has the entry (CoreInfo::button_remap).
             (
                 crate::core::SETTING_SWAP_AB,
-                kvs::keys::GB_SWAP_AB.get().unwrap() as u32,
+                fpga::button_remap_ab_value(kvs::keys::GB_BUTTON_REMAP.get().unwrap()),
             ),
         ]
     }
@@ -541,7 +542,7 @@ impl CoreHandler for Gameboy {
             }
             crate::core::SETTING_SWAP_AB => {
                 // The core manager writes the register; only store the value here.
-                kvs::keys::GB_SWAP_AB.set(&(value != 0));
+                kvs::keys::GB_BUTTON_REMAP.set(&fpga::button_remap_ab_enabled(value));
                 return;
             }
             _ => {}

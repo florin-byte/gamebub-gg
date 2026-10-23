@@ -103,7 +103,7 @@ static uint32_t hostRead(uint32_t address) {
     return sampled.hostDataRead;
 }
 
-static uint32_t command(std::vector<uint32_t> words, long limit = 1000000) {
+static uint32_t command(std::vector<uint32_t> words, long limit = 1000000, bool allowError = false) {
     for (size_t i = 0; i < words.size(); i++) hostWrite(0xF0000000u + 4 * i, words[i]);
     top->io_host_commandHost_request = 1;
     long guard = 0;
@@ -112,10 +112,12 @@ static uint32_t command(std::vector<uint32_t> words, long limit = 1000000) {
     top->io_host_commandHost_request = 0;
     tick();
     uint32_t result = hostRead(0xF0000000u);
-    if (error || guard >= limit) { fprintf(stderr, "command 0x%04x failed\n", words[0]); exit(1); }
+    if ((error && !allowError) || guard >= limit) { fprintf(stderr, "command 0x%04x failed\n", words[0]); exit(1); }
     if (limit > 1000000) fprintf(stderr, "command 0x%04x %u: %ld cycles\n", words[0], words.size() > 1 ? words[1] : 0, guard);
-    return result;
+    return error ? 0xFFFFFFFFu : result;
 }
+
+#include "../stock_savestates/protocol.hpp"
 
 int main(int argc, char** argv) {
     Verilated::commandArgs(argc, argv);
@@ -170,6 +172,8 @@ int main(int argc, char** argv) {
     command({0x0200, 1});        // focus
     fprintf(stderr, "ROM loaded (%zu bytes) in %llu cycles\n", rom.size(), (unsigned long long)cycles);
 
+    if (getenv("STOCK_FILE_TEST")) { runStockFileProtocol(true); delete top; return 0; }
+    if (getenv("STOCK_TEST")) { runStockProtocol(true); delete top; return 0; }
     const int width = 256, height = 240;
     std::vector<uint32_t> fb(width * height, 0);
     int fx = 0, fy = 0, frame = 0, held = 0;
