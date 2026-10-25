@@ -25,7 +25,7 @@ Use the archive for your board and copy the JSON files together with the bitstre
 
 ## Install
 
-1. Copy `sdcard/cores/Retro-Bub.GG` to the `cores/` folder on your SD card and put the bitstream next to the json
+1. Copy the files in `metadata/` to a `cores/Retro-Bub.GG/` folder on your SD card and put the bitstream next to the json
    files (`gg-gamebub_rev4.bit` for rev4, `gg-gamebub_rev2.bit` for rev2).
 2. Games are `.gg`. The battery save goes next to the rom as `<rom>.sav`, it works with the stock firmware too.
 
@@ -55,7 +55,7 @@ The unified RTL and both sets of JSON files are in this branch. Use the matching
 bitstreams do not support the new register map or the stock container. I tested the on-demand path on rev2.
 The stock firmware path is not hardware-tested by me and is left for other users to test.
 
-- Stock firmware (1.1.0-beta3): use `sdcard/cores/Retro-Bub.GG` with the matching new bitstream. State Slot, Save State
+- Stock firmware (1.1.0-beta3): use `metadata/` with the matching new bitstream. State Slot, Save State
   and Load State use four slots in `<rom>.ggstates` (384 KiB), loaded when the game starts and written when you
   exit the game normally. **States saved during the session are lost if you power off or the game crashes
   before a normal exit.** An empty slot is refused without restoring it.

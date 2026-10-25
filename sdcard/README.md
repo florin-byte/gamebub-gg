@@ -2,10 +2,10 @@
 
 | folder | for |
 |---|---|
-| `cores/Retro-Bub.GG/` | stock beta3 firmware: four slots in a 384 KiB `.ggstates` container, written at normal exit |
+| `../metadata/` | stock beta3 firmware: four slots in a 384 KiB `.ggstates` container, written at normal exit |
 | `savestate-firmware/cores/Retro-Bub.GG/` | a firmware with on-demand core files (`firmware/handheld/` of this repository): individual `.ss0`–`.ss3` files, written immediately |
 
-Copy one `Retro-Bub.GG` folder to the card's `cores/` folder and put the uncompressed bitstream next to the JSON
+Copy the JSON files of one variant to a `cores/Retro-Bub.GG/` folder on the card and put the uncompressed bitstream next to the JSON
 files (`gg-gamebub_rev4.bit` for rev4, `gg-gamebub_rev2.bit` for rev2; `core.json` lists both).
 
 These JSONs must ship with the matching framework-v2 unified bitstream. I tested the on-demand path on rev2
