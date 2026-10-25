@@ -32,6 +32,24 @@
 			"default": "0x0"
 		},
 		{
+			"id": 12,
+			"label": "Z80 Turbo",
+			"address": "0x0",
+			"mask": "0xFFFFFBFF",
+			"type": "checkbox",
+			"value": "0x400",
+			"default": "0x0"
+		},
+		{
+			"id": 13,
+			"label": "Extended Resolution",
+			"address": "0x0",
+			"mask": "0xFFFFF7FF",
+			"type": "checkbox",
+			"value": "0x800",
+			"default": "0x0"
+		},
+		{
 			"id": 6,
 			"label": "Scaling",
 			"address": "0x0",

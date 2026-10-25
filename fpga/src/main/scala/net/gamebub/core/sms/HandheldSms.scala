@@ -1,7 +1,7 @@
 package net.gamebub.core.sms
 
 import chisel3._
-import net.gamebub.core.StockSaveStateSlots
+import net.gamebub.core.{CheatLoader, StockSaveStateSlots}
 import chisel3.util._
 import lib.mem.{MemoryInterface, MemoryMap, PipelineInterfaceBridge, PipelineMemoryArbiter, PipelineMemoryInterface, RegisterMap}
 import lib.mem.sdram.BurstSdramController
@@ -24,7 +24,12 @@ object HandheldSms {
 
   /** Register 0x0000, written by the core settings (settings.json). */
   class Config extends Bundle {
-    val reserved = UInt(22.W)
+    val reserved = UInt(20.W)
+    /** Bit 11: Game Gear extended resolution (SMS.sv "Game Gear Res.": the VDP's whole 256x192 picture instead of
+     *  the 160x144 window). Ignored by the SMS core. */
+    val ggExtended = Bool()
+    /** Bit 10: Z80 turbo (SMS.sv "Z80 Speed": the CPU on the pixel clock enable, 1.5x) */
+    val turbo = Bool()
     /** Bits 9-8: Game Gear colors (GgSmsColors: 0 = Auto from the ROM's CRC-32, 1 = Game Gear,
      *  2 = Master System palette for the games that run in SMS mode; 3 = Game Gear). Ignored by the SMS core. */
     val colors = UInt(2.W)
@@ -42,10 +47,11 @@ object HandheldSms {
     val pal = Bool()
   }
 
-  /** Video output: 256x240 (SMS window) or 160x144 (Game Gear), 4 bits per channel. */
+  /** Video output: 256x240 (SMS window) or 256x192 (Game Gear: the 160x144 window at the top left, or the
+   *  whole picture in extended resolution), 4 bits per channel. */
   def videoInterface(gameGear: Boolean): VideoV0 = new VideoV0(
-    videoWidth = if (gameGear) 160 else 256,
-    videoHeight = if (gameGear) 144 else 240,
+    videoWidth = 256,
+    videoHeight = if (gameGear) 192 else 240,
     colorDepthR = 4,
     colorDepthG = 4,
     colorDepthB = 4,
@@ -56,7 +62,7 @@ object HandheldSms {
     * is 240 lines with the active lines centered (192, 224 or 240); the Game Gear shows 160x144. Pixels
     * are taken as square, as in the gamebub-0.1 scaler. */
   def scalerInterface(gameGear: Boolean): VideoScalerV0 = new VideoScalerV0(
-    if (gameGear) Seq(VideoScalerV0.Mode(0, 0, 160, 144))
+    if (gameGear) Seq(VideoScalerV0.Mode(0, 0, 160, 144), VideoScalerV0.Mode(0, 0, 256, 192))
     else Seq(
       VideoScalerV0.Mode(0, 24, 256, 192),
       VideoScalerV0.Mode(0, 8, 256, 224),
@@ -238,6 +244,8 @@ class SmsCore(gameGear: Boolean) extends Module {
   val sdramHost = Wire(new MemoryInterface(addressWidth = 25, dataWidth = 32))
   val saveInterface = Wire(new MemoryInterface(addressWidth = 15, dataWidth = 32))
   val commandInterface = Wire(new MemoryInterface(addressWidth = 16, dataWidth = 32))
+  val cheatHost = Wire(new MemoryInterface(addressWidth = CheatLoader.AddressWidth, dataWidth = 32))
+  val cheatClearWrite = WireDefault(false.B)
   val memoryMap = MemoryMap(
     addressWidth = 32,
     dataWidth = 32,
@@ -245,6 +253,7 @@ class SmsCore(gameGear: Boolean) extends Module {
       0x0.U(4.W) -> registerInterface,
       0x3.U(4.W) -> sdramHost,
       0x4.U(4.W) -> saveInterface,
+      0x5.U(4.W) -> cheatHost,
       0xF0.U(8.W) -> commandInterface,
     ))
   io.host.mem.unsafe :<>= memoryMap.unsafe
@@ -285,6 +294,9 @@ class SmsCore(gameGear: Boolean) extends Module {
         })),
       0x0018 -> RegisterMap.Entry.rw(regStockSlot),
       0x001C -> RegisterMap.Entry.r(stock.io.status),
+      0x0020 -> RegisterMap.Entry(32, RegisterMap.ReadFn(), RegisterMap.WriteFn((write, data) => {
+        when (write && data(0)) { cheatClearWrite := true.B }
+      })),
       0x1000 -> RegisterMap.Entry.rw(statRegRomReads),
       0x1004 -> RegisterMap.Entry.rw(statRegRomSlowReads),
       0x1008 -> RegisterMap.Entry.rw(statRegRomMaxLatency),
@@ -547,7 +559,8 @@ class SmsCore(gameGear: Boolean) extends Module {
   val smsColors = Mux(configReg.colors === GgSmsColors.ColorsAuto.U, regSmsColorsAuto,
     configReg.colors === GgSmsColors.ColorsSms.U)
   sp.gg := gameGear.B && !smsColors
-  sp.ggres := gameGear.B
+  val ggres = gameGear.B && !configReg.ggExtended
+  sp.ggres := ggres
   sp.RESET_n := !coreReset
   sp.dbr := regRomLoaded
   val pal = configReg.pal && !gameGear.B
@@ -555,6 +568,14 @@ class SmsCore(gameGear: Boolean) extends Module {
   sp.region := Mux(configReg.region === 0.U, regHeaderRegion === 3.U, configReg.region === 2.U)
   sp.fm_ena := configReg.fm && !gameGear.B
   sp.sp64 := configReg.noSpriteLimit
+  sp.turbo := configReg.turbo
+  // Cheats (SMS.sv "Cheats"): the firmware clears the codes (register 0x0020) and writes those of the cheats
+  // that are on to 0x5xxx_xxxx; they are also cleared when a new game loads. CODES runs on clk_sys.
+  val cheatLoader = Module(new CheatLoader)
+  cheatLoader.io.host <> cheatHost
+  sp.GG_CODE := cheatLoader.io.code
+  sp.GG_RESET := romLoadStart || cheatClearWrite
+  sp.GG_EN := false.B // active low in system.vhd (enable => not GG_EN)
   sp.palettemode := configReg.sg && !gameGear.B
   sp.ROMCL := clock.asUInt.asBool
   sp.ROMAD := replayAddress
@@ -588,7 +609,7 @@ class SmsCore(gameGear: Boolean) extends Module {
   video.io.ce_pix := cePix
   video.io.pal := pal
   video.io.border := (!gameGear).B
-  video.io.ggres := gameGear.B
+  video.io.ggres := ggres
   video.io.mask_column := sp.mask_column
   video.io.cut_mask := false.B
   video.io.smode_M1 := sp.smode_M1
@@ -614,7 +635,8 @@ class SmsCore(gameGear: Boolean) extends Module {
   ss.ss_game_id := regGameId
   ss.vblank := video.io.vblank
   ss.x := video.io.x
-  ss.cpu_ce := ceCpu
+  // SMS.sv clkref_cpu: the CPU's enable, which follows turbo.
+  ss.cpu_ce := Mux(configReg.turbo, cePix, ceCpu)
   ss.vdp_ce := ceVdp
   ss.pix_ce := cePix
   ss.sp_ce := ceSp
@@ -811,13 +833,14 @@ class SmsCore(gameGear: Boolean) extends Module {
   val lines224 = sp.smode_M1 && sp.smode_M2
   val lines240 = sp.smode_M3 && sp.smode_M2
   // Scaler mode: the index in scalerInterface's modes.
-  io.videoScaler.mode := (if (gameGear) 0.U else Mux(lines240, 2.U, Mux(lines224, 1.U, 0.U)))
+  io.videoScaler.mode := (if (gameGear) Mux(ggres, 0.U, 1.U) else Mux(lines240, 2.U, Mux(lines224, 1.U, 0.U)))
   io.videoScaler.filter := configReg.filter
   if (gameGear) {
-    // 160x144 window from the VDP blanking (ggres).
-    io.video.hblank := video.io.hblank
-    io.video.vblank := video.io.vblank
-    io.video.dataEnable := pixelValid && !video.io.hblank && !video.io.vblank
+    // 160x144 window from the VDP blanking (ggres), or the whole 256x192 picture (extended resolution).
+    val inWindow = (pixelY < 192.U) && (pixelX < 256.U)
+    io.video.hblank := Mux(ggres, video.io.hblank, !inWindow)
+    io.video.vblank := Mux(ggres, video.io.vblank, !(pixelY < 192.U))
+    io.video.dataEnable := pixelValid && Mux(ggres, !video.io.hblank && !video.io.vblank, inWindow)
   } else {
     // 256x240 window centered on the active lines (192, 224 or 240); the VDP draws the border.
     val top = Mux(lines240, 0.U, Mux(lines224, 8.U, 24.U))

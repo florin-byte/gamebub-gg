@@ -9,6 +9,11 @@
 	"hardware": {
 		"button_remap": true
 	},
+	"cheats": {
+		"format": "sms",
+		"address": "0x50000000",
+		"clear": "0x20"
+	},
 	"bitstreams": [
 		{
 			"target": "gamebub_rev4",
