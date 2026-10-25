@@ -5,7 +5,7 @@ this page lists them in one place, with what was written for this port.
 
 ## The Master System / Game Gear core (`fpga/vendor/sms_mister/`)
 
-From [SMS_MiSTer](https://github.com/MiSTer-devel/SMS_MiSTer) @ `e7a4086` (local changes listed in
+From [SMS_MiSTer](https://github.com/MiSTer-devel/SMS_MiSTer) @ `8443a0d` (local changes listed in
 `fpga/vendor/sms_mister/README.md`). SMS_MiSTer is a port of Ben's Sega Master System implementation for the Papilio
 (http://fpga-hacks.blogspot.de/), extended by the MiSTer contributors.
 

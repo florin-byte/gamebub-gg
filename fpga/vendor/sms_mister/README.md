@@ -4,7 +4,7 @@ Sega Master System / Game Gear / SG-1000 core from the MiSTer project, used by t
 repository (`fpga/src/main/scala/net/gamebub/core/sms/`).
 
 - Source: https://github.com/MiSTer-devel/SMS_MiSTer
-- Commit: `e7a4086` (12 Oct 2026)
+- Commit: `8443a0d` (14 Oct 2026)
 - Files: the RTL used by `system.vhd` and `video.vhd`, and the save-state machine `savestates.sv` (unchanged;
   its DDRAM port is mapped to SDRAM by `SaveStateMemoryBridge`), copied from `rtl/` (local changes below). The MiSTer top level
   (`SMS.sv`), the MiSTer framework (`sys/`) and the Altera RAM wrappers (`sprom.vhd`, `spram.vhd`,
