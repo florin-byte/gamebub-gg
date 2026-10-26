@@ -12,7 +12,8 @@
 	"cheats": {
 		"format": "sms",
 		"address": "0x50000000",
-		"clear": "0x20"
+		"clear": "0x20",
+		"folder": "Sega - Game Gear"
 	},
 	"bitstreams": [
 		{
