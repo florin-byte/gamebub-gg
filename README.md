@@ -10,6 +10,17 @@ firmware and the scripts to build it. The same sources also build the Master Sys
 
 If you only want to play, take the zip from the [releases](../../releases), you don't need to build anything.
 
+## Update prepared on 12 Nov 2026
+
+- Cheats, with my firmware (v0.4.0): a Cheats page in the game menu. Put the `.cht` file next to the rom or in
+  `/cheats/Sega - Game Gear/` on the card (the folder name of the libretro database). Game Genie and Pro Action Replay.
+- Z80 Turbo: a faster CPU, for games that slow down.
+- Extended Resolution: shows the 256x192 picture that Master System mode games draw, not only the 160x144 window.
+- SMS_MiSTer updated to `8443a0d` (Mode 4 sprites at X=0, port $3E).
+
+The new rev4 build meets timing, but has not been tested on a rev4 console. The stock firmware gets the two new
+settings; cheats need my firmware. Use the archive for your board and copy the JSON files together with the bitstream.
+
 ## Update prepared on 23 Oct 2026
 
 - Eli's beta3 framework and button remapping. Copy the new JSON files together with the bitstream.
@@ -43,6 +54,8 @@ Use the archive for your board and copy the JSON files together with the bitstre
   list is from Genesis Plus GX) and switches to the Master System colors, the screen stays 160x144. In that mode
   Start is the Master System Pause button, like on the real console. Game Gear and Master System force one palette,
   for a hack or a dump that is not in the list. Reset the game after you change it.
+- Z80 Turbo: runs the Z80 faster. Off by default.
+- Extended Resolution: 256x192 instead of the 160x144 window. Off by default.
 - Swap A/B (right before Reset): swaps A and B for this core only, at once, without a restart.
   It's off by default and every core keeps its own value. The menus are not swapped. With the new framework-v2
   bitstream, this list applies to the handheld buttons; docked gamepads keep their separate Dock setting.
