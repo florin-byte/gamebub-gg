@@ -1,6 +1,49 @@
 {
 	"settings": [
 		{
+			"id": 7,
+			"label": "State Slot",
+			"address": "0xFFFFFFFF",
+			"type": "list",
+			"file_slots": 2,
+			"items": [
+				{
+					"label": "Slot 1",
+					"value": "0x0"
+				},
+				{
+					"label": "Slot 2",
+					"value": "0x1"
+				},
+				{
+					"label": "Slot 3",
+					"value": "0x2"
+				},
+				{
+					"label": "Slot 4",
+					"value": "0x3"
+				}
+			],
+			"default": "0x0"
+		},
+		{
+			"id": 8,
+			"label": "Save State",
+			"address": "0xFFFFFFFF",
+			"type": "action",
+			"value": "0x0",
+			"file": 2
+		},
+		{
+			"id": 9,
+			"label": "Load State",
+			"address": "0xFFFFFFFF",
+			"type": "action",
+			"value": "0x0",
+			"file": 2,
+			"load": true
+		},
+		{
 			"id": 2,
 			"label": "Region",
 			"address": "0x0",
@@ -96,49 +139,6 @@
 				}
 			],
 			"default": "0x0"
-		},
-		{
-			"id": 7,
-			"label": "State Slot",
-			"address": "0xFFFFFFFF",
-			"type": "list",
-			"file_slots": 2,
-			"items": [
-				{
-					"label": "Slot 1",
-					"value": "0x0"
-				},
-				{
-					"label": "Slot 2",
-					"value": "0x1"
-				},
-				{
-					"label": "Slot 3",
-					"value": "0x2"
-				},
-				{
-					"label": "Slot 4",
-					"value": "0x3"
-				}
-			],
-			"default": "0x0"
-		},
-		{
-			"id": 8,
-			"label": "Save State",
-			"address": "0xFFFFFFFF",
-			"type": "action",
-			"value": "0x0",
-			"file": 2
-		},
-		{
-			"id": 9,
-			"label": "Load State",
-			"address": "0xFFFFFFFF",
-			"type": "action",
-			"value": "0x0",
-			"file": 2,
-			"load": true
 		},
 		{
 			"id": 15,
