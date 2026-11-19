@@ -41,7 +41,8 @@ object VideoScalerV0 {
     require(x >= 0 && y >= 0 && width > 0 && height > 0 && pixelAspect > 0)
   }
 
-  /// The platform's integer scale of the whole framebuffer (the behavior without this interface).
+  /// Integer scale. On rotated LCD panels: the largest whole scale of the mode's window, centered (only the
+  /// window is shown). Elsewhere: the platform's integer scale of the whole framebuffer.
   val FilterInteger = 0
   /// Aspect-correct scale, Sharp Bilinear filter (sharp pixels, smooth edges).
   val FilterSharpBilinear = 1

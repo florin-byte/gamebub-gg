@@ -52,6 +52,25 @@ object LcdAspectScaler {
     Geometry(mode, inverseX, inverseY, (screenWidth - width) / 2 + displayOffsetX, (screenHeight - height) / 2,
       width, height, scaleX, scaleY)
   }
+
+  /**
+   * Integer filter: the largest whole scale of the mode's window that fits the same usable area as
+   * [[geometry]] (one scale for both axes, every source pixel a square of screen pixels, at least 1x),
+   * centered the same way. Only the window is shown: the parts of the framebuffer outside it, which the
+   * core does not write in that mode, stay off the screen (Game Gear 160x144 in its 256x192 framebuffer
+   * kept a stale picture there; 2x on rev2, 3x on rev4).
+   */
+  def integerGeometry(mode: VideoScalerV0.Mode, screenWidth: Int, screenHeight: Int, displayOffsetX: Int): Geometry = {
+    val usableWidth = screenWidth - 2 * displayOffsetX.abs
+    val scale = math.max(1, math.min(screenHeight / mode.height, usableWidth / mode.width))
+    val one = 1 << InverseScaleBits
+    val inverse = math.ceil(one.toDouble / scale).toInt
+    val width = math.ceil(mode.width.toDouble * one / inverse).toInt
+    val height = math.ceil(mode.height.toDouble * one / inverse).toInt
+    require(width <= usableWidth && height <= screenHeight, s"mode $mode does not fit at 1x")
+    Geometry(mode, inverse, inverse, (screenWidth - width) / 2 + displayOffsetX, (screenHeight - height) / 2,
+      width, height, scale.toDouble, scale.toDouble)
+  }
 }
 
 /**
@@ -83,7 +102,12 @@ class LcdAspectScaler(
 ) extends Module {
   import LcdAspectScaler._
 
+  /** Aspect-correct placement of each mode (Sharp Bilinear, Bilinear, Nearest). */
   val geometries = modes.map(geometry(_, screenWidth, screenHeight, displayOffsetX))
+  /** Whole-scale placement of each mode (Integer). */
+  val integerGeometries = modes.map(integerGeometry(_, screenWidth, screenHeight, displayOffsetX))
+  /** Selected by `(integer ? modes.size : 0) + mode`. */
+  private val allGeometries = geometries ++ integerGeometries
   for (g <- geometries) {
     require(g.mode.x + g.mode.width <= fbWidth && g.mode.y + g.mode.height <= fbHeight,
       s"mode ${g.mode} outside the ${fbWidth}x$fbHeight framebuffer")
@@ -100,7 +124,7 @@ class LcdAspectScaler(
     val fbReadAddress = Output(UInt(log2Ceil(fbWidth * fbHeight).W))
     val fbReadData = Input(color)
 
-    /** A filter is selected: the framebuffer read port, the pixel and the bounds come from here. */
+    /** The framebuffer read port, the pixel and the bounds come from here (always, Integer included). */
     val active = Output(Bool())
     /** The display position is inside the scaled picture. */
     val inBounds = Output(Bool())
@@ -115,13 +139,19 @@ class LcdAspectScaler(
   val regFilter = RegInit(0.U(2.W))
   when (frameStart) {
     regMode := Mux(io.mode < modes.size.U, io.mode, 0.U)
-    // Every 2-bit value is a filter: Integer, Sharp Bilinear, Bilinear or Nearest (same geometry for all).
+    // Every 2-bit value is a filter: Integer (whole scale) or Sharp Bilinear, Bilinear, Nearest (aspect scale).
     regFilter := io.filter
   }
-  io.active := regFilter =/= VideoScalerV0.FilterInteger.U
+  // Integer is shown here too, at a whole scale of the mode's window and with the Nearest filter (exact at an
+  // integer scale), instead of the platform's integer scale of the whole framebuffer.
+  io.active := true.B
+  val integer = regFilter === VideoScalerV0.FilterInteger.U
+  val geometryIndex = Mux(integer, regMode +& modes.size.U, regMode)
 
-  def select(f: Geometry => Int, width: Int): UInt =
-    MuxLookup(regMode, f(geometries.head).U(width.W))(geometries.zipWithIndex.map { case (g, i) => i.U -> f(g).U(width.W) })
+  def selectBy(f: (Geometry, Int) => Int, width: Int): UInt =
+    MuxLookup(geometryIndex, f(allGeometries.head, 0).U(width.W))(
+      allGeometries.zipWithIndex.map { case (g, i) => i.U -> f(g, i).U(width.W) })
+  def select(f: Geometry => Int, width: Int): UInt = selectBy((g, _) => f(g), width)
   val offsetX = select(_.offsetX, 10)
   val offsetY = select(_.offsetY, 10)
   val width = select(_.width, 10)
@@ -138,13 +168,16 @@ class LcdAspectScaler(
     sharpSlopesX = slopesX,
     sharpSlopesY = slopesY,
   ))
-  scaler.io.slopeSelectX := select(g => slopesX.indexOf(PolyphaseScaler.sharpSlopeFor(g.scaleX)), log2Ceil(slopesX.size.max(2)))
-  scaler.io.slopeSelectY := select(g => slopesY.indexOf(PolyphaseScaler.sharpSlopeFor(g.scaleY)), log2Ceil(slopesY.size.max(2)))
+  // The integer geometries use Nearest, which has no slope: any index.
+  def slopeIndex(slopes: Seq[Int], scale: Double, i: Int): Int =
+    if (i < geometries.size) slopes.indexOf(PolyphaseScaler.sharpSlopeFor(scale)) else 0
+  scaler.io.slopeSelectX := selectBy((g, i) => slopeIndex(slopesX, g.scaleX, i), log2Ceil(slopesX.size.max(2)))
+  scaler.io.slopeSelectY := selectBy((g, i) => slopeIndex(slopesY, g.scaleY, i), log2Ceil(slopesY.size.max(2)))
   scaler.io.windowX := select(_.mode.x, log2Ceil(fbWidth))
   scaler.io.windowY := select(_.mode.y, log2Ceil(fbHeight))
   scaler.io.windowWidth := select(_.mode.width, log2Ceil(fbWidth + 1))
   scaler.io.windowHeight := select(_.mode.height, log2Ceil(fbHeight + 1))
-  scaler.io.filter := regFilter
+  scaler.io.filter := Mux(integer, VideoScalerV0.FilterNearest.U, regFilter)
   scaler.io.frameStart := frameStart
   scaler.io.fbReadData := io.fbReadData
   io.fbReadAddress := scaler.io.fbReadAddress

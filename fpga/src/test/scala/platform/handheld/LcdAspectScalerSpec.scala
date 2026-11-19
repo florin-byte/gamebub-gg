@@ -83,7 +83,10 @@ class LcdAspectScalerSpec extends AnyFunSuite {
     val maskY = (1 << panel.dpiWidthY) - 1
     simulate(new LcdAspectScaler(modes, panel.screenWidth, panel.screenHeight, panel.displayOffsetX, fbWidth,
       fbHeight, depth, depth, depth, dpiWidthX = panel.dpiWidthX, dpiWidthY = panel.dpiWidthY, delay = 0)) { dut =>
-      val g = dut.geometries(mode)
+      // Integer: the whole-scale geometry, drawn with the Nearest filter.
+      val isInteger = filter == VideoScalerV0.FilterInteger
+      val g = if (isInteger) dut.integerGeometries(mode) else dut.geometries(mode)
+      val drawFilter = if (isInteger) VideoScalerV0.FilterNearest else filter
       dut.io.mode.poke(mode)
       dut.io.filter.poke(filter)
       dut.reset.poke(true); dut.clock.step(2); dut.reset.poke(false)
@@ -104,7 +107,7 @@ class LcdAspectScalerSpec extends AnyFunSuite {
         if (frame == 1 && active && dut.io.inBounds.peek().litToBoolean) {
           val got = (dut.io.pixel.r.peek().litValue.toInt, dut.io.pixel.g.peek().litValue.toInt,
             dut.io.pixel.b.peek().litValue.toInt)
-          val want = expected(g, filter, dpiX, dpiY)
+          val want = expected(g, drawFilter, dpiX, dpiY)
           if (got != want && mismatches.size < 10) mismatches ::= s"($dpiX,$dpiY): got $got, want $want"
           if (exact) {
             val pure = source(g.mode.x + ((dpiX - g.offsetX) / g.scaleX.round.toInt),
@@ -195,5 +198,37 @@ class LcdAspectScalerSpec extends AnyFunSuite {
   }
   test("Lynx 160x102, 3x, Nearest: every pixel a source pixel") {
     run(lynxModes, 0, VideoScalerV0.FilterNearest, fbWidth = 160, fbHeight = 160, exact = true, nearest = true)
+  }
+
+  // Integer (filter 0): the largest whole scale of the mode's window, centered; only the window is shown (the
+  // Game Gear's 256x192 framebuffer keeps a stale picture outside its 160x144 window, which the platform's
+  // whole-framebuffer integer scale displayed and which flickered between the two buffers).
+  val ggModes = Seq(VideoScalerV0.Mode(0, 0, 160, 144), VideoScalerV0.Mode(0, 0, 256, 192))
+
+  test("geometry: Integer, Game Gear on rev2 (2x, 1x) and rev4 (3x, 2x)") {
+    def place(m: VideoScalerV0.Mode, w: Int, h: Int, off: Int) = {
+      val g = LcdAspectScaler.integerGeometry(m, w, h, off)
+      (g.width, g.height, g.offsetX, g.offsetY, g.scaleX)
+    }
+    assert(ggModes.map(place(_, 480, 320, 0)) == Seq((320, 288, 80, 16, 2.0), (256, 192, 112, 64, 1.0)))
+    assert(ggModes.map(place(_, 800, 480, -28)) == Seq((480, 432, 132, 24, 3.0), (512, 384, 116, 48, 2.0)))
+    // Every mode stays on the rev4 panel, centered on column 372.
+    for (m <- smsModes ++ ggModes ++ lynxModes) {
+      val g = LcdAspectScaler.integerGeometry(m, 800, 480, -28)
+      assert(g.offsetX >= 0 && g.offsetX + g.width <= 800 && g.offsetY >= 0 && g.offsetY + g.height <= 480, s"$m: $g")
+      assert((g.offsetX + g.width / 2 - 372).abs <= 1, s"$m not centered on 372: $g")
+    }
+  }
+  test("Integer: Game Gear 160x144 at 2x on rev2, window only") {
+    run(ggModes, 0, VideoScalerV0.FilterInteger, fbWidth = 256, fbHeight = 192, exact = true)
+  }
+  test("Integer: Game Gear extended 256x192 at 1x on rev2") {
+    run(ggModes, 1, VideoScalerV0.FilterInteger, fbWidth = 256, fbHeight = 192, exact = true)
+  }
+  test("rev4: Integer, Game Gear 160x144 at 3x, window only") {
+    run(ggModes, 0, VideoScalerV0.FilterInteger, fbWidth = 256, fbHeight = 192, exact = true, panel = rev4)
+  }
+  test("rev4: Integer, Game Gear extended 256x192 at 2x") {
+    run(ggModes, 1, VideoScalerV0.FilterInteger, fbWidth = 256, fbHeight = 192, exact = true, panel = rev4)
   }
 }

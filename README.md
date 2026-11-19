@@ -10,6 +10,17 @@ firmware and the scripts to build it. The same sources also build the Master Sys
 
 If you only want to play, take the zip from the [releases](../../releases), you don't need to build anything.
 
+## Update v0.5.1 (19 Nov 2026)
+
+- Integer scaling now scales only the game window, centered, by the largest whole number that fits: 160x144 at 2x on
+  rev2 and 3x on rev4, Extended Resolution (256x192) at 1x on rev2 and 2x on rev4. Before, Integer showed the whole
+  256x192 framebuffer at 1x (2x on rev4): the game sat in its top-left corner and the rest of the framebuffer, which
+  the core does not write without Extended Resolution, showed an old picture that flickered. Thanks to Dane for the
+  report.
+
+I tested this on my rev2 (Integer with Extended Resolution off and on). The rev4 build meets timing but has not been
+tested on a rev4 console.
+
 ## Update of 19 Nov 2026
 
 - The core is now built on Eli's beta4 framework (1.1.0-beta4), so gamepads through the dock work with beta4.
@@ -56,7 +67,8 @@ Use the archive for your board and copy the JSON files together with the bitstre
 - Scaling: Sharp Bilinear / Bilinear / Nearest / Integer. The picture is 160x144, scaled to the full height of the
   screen. Nearest is the same size as the bilinear ones, but without blending, every screen pixel is one Game Gear
   pixel. The scale is not a whole number (10/3 on rev4), so some pixels are one line wider than the others. If you
-  don't like that, use Sharp Bilinear, or Integer for a smaller picture with even pixels.
+  don't like that, use Sharp Bilinear, or Integer for a smaller picture with even pixels: the largest whole scale that
+  fits, centered (2x on rev2, 3x on rev4; with Extended Resolution 1x on rev2, 2x on rev4).
 - Colors: Auto / Game Gear / Master System. Some Game Gear games run in the console's Master System mode (Castle of
   Illusion, Out Run Europa, Prince of Persia, Olympic Gold and a lot of Japanese and Taiwanese ones) and need the
   Master System palette, with the Game Gear one the colors are wrong. Auto finds them by the CRC-32 of the rom (the
