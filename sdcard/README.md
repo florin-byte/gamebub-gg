@@ -2,7 +2,7 @@
 
 | folder | for |
 |---|---|
-| `../metadata/` | stock beta3 firmware: four slots in a 384 KiB `.ggstates` container, written at normal exit |
+| `../metadata/` | stock beta4 firmware: four slots in a 384 KiB `.ggstates` container, written at normal exit |
 | `savestate-firmware/cores/Retro-Bub.GG/` | a firmware with on-demand core files (`firmware/handheld/` of this repository): individual `.ss0`–`.ss3` files, written immediately |
 
 Copy the JSON files of one variant to a `cores/Retro-Bub.GG/` folder on the card and put the uncompressed bitstream next to the JSON

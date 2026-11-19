@@ -2,13 +2,22 @@
 
 This is the Sega Game Gear core for the [Game Bub](https://github.com/elipsitz/gamebub), loaded from the SD card. It
 is the MiSTer core ([SMS_MiSTer](https://github.com/MiSTer-devel/SMS_MiSTer)) glued to Eli's Game Bub framework
-(1.1.0-beta3). It is not an official Game Bub core, I just ported it.
+(1.1.0-beta4). It is not an official Game Bub core, I just ported it.
 
 The repo is my fork of the Game Bub code, cut down to what the Game Gear needs: the FPGA framework, the core, the
 firmware and the scripts to build it. The same sources also build the Master System / SG-1000 version of the core
 (`HandheldSms`), but this repo is about the Game Gear.
 
 If you only want to play, take the zip from the [releases](../../releases), you don't need to build anything.
+
+## Update of 19 Nov 2026
+
+- The core is now built on Eli's beta4 framework (1.1.0-beta4), so gamepads through the dock work with beta4.
+  Use it with firmware 1.1.0-beta4 or my firmware v0.5.0; copy the JSON files together with the bitstream.
+- The "Swap A/B" entry is no longer in `settings.json`: beta4 refuses settings at framework addresses. My firmware
+  adds Swap A/B by itself before Reset (`hardware.button_remap` in `core.json`).
+
+I tested this on my rev2. The rev4 build meets timing but has not been tested on a rev4 console.
 
 ## Update prepared on 12 Nov 2026
 
@@ -56,9 +65,9 @@ Use the archive for your board and copy the JSON files together with the bitstre
   for a hack or a dump that is not in the list. Reset the game after you change it.
 - Z80 Turbo: runs the Z80 faster. Off by default.
 - Extended Resolution: 256x192 instead of the 160x144 window. Off by default.
-- Swap A/B (right before Reset): swaps A and B for this core only, at once, without a restart.
-  It's off by default and every core keeps its own value. The menus are not swapped. With the new framework-v2
-  bitstream, this list applies to the handheld buttons; docked gamepads keep their separate Dock setting.
+- Swap A/B (right before Reset, with my firmware only): swaps A and B for this core only, at once, without a restart.
+  It's off by default and every core keeps its own value. The menus are not swapped. The list applies to the
+  handheld buttons; docked gamepads keep their separate Dock setting.
   I tested the handheld mapping on rev2 on 23 Oct; docked gamepads were not tested.
 - Reset.
 
@@ -68,7 +77,7 @@ The unified RTL and both sets of JSON files are in this branch. Use the matching
 bitstreams do not support the new register map or the stock container. I tested the on-demand path on rev2.
 The stock firmware path is not hardware-tested by me and is left for other users to test.
 
-- Stock firmware (1.1.0-beta3): use `metadata/` with the matching new bitstream. State Slot, Save State
+- Stock firmware (1.1.0-beta4): use `metadata/` with the matching new bitstream. State Slot, Save State
   and Load State use four slots in `<rom>.ggstates` (384 KiB), loaded when the game starts and written when you
   exit the game normally. **States saved during the session are lost if you power off or the game crashes
   before a normal exit.** An empty slot is refused without restoring it.
@@ -112,13 +121,12 @@ In the json files it looks like this (see `sdcard/savestate-firmware/`):
 
 ## How Swap A/B works
 
-The new JSONs use a two-choice list at `0xF1001208`: Off writes `0x0B0A0908`, On writes `0x0A0B0908`.
-The new ID is `0x7FF1`; the old checkbox's 0/1 values are not reused. `hardware.button_remap` lets my migrated
-firmware add the list when JSON does not already contain it. The explicit entry works with the stock
-firmware too. It stays immediately before Reset.
+The register is the framework's list at `0xF1001208`: Off writes `0x0B0A0908`, On writes `0x0A0B0908`, setting ID
+`0x7FF1`. Since beta4 the firmware refuses a `settings.json` entry at a framework address (`0xF0000000` and up), so the
+entry is no longer in the JSON. `"hardware": { "button_remap": true }` in `core.json` tells my firmware to add the list
+right before Reset. In framework v2, `0xF1001018` is video darken; do not put an older Swap A/B checkbox there.
 
-These JSONs require the matching framework-v2 bitstream. In that framework `0xF1001018` is video darken,
-not Swap A/B. I tested physical A/B mapping on rev2 on 23 Oct. The new remap applies to the
+I tested physical A/B mapping on rev2 on 23 Oct. The new remap applies to the
 handheld buttons; docked gamepads keep their separate Dock > Swap A/B and X/Y setting. Menus are unchanged.
 
 
