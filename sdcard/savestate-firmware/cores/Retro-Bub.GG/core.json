@@ -4,7 +4,9 @@
 		"id": "Retro-Bub.GG",
 		"name": "Game Gear",
 		"author": "MiSTer, Florin",
-		"version": "0.5.3",
+		"version": "0.5.4",
+		"description": "MiSTer Game Gear port with save states, Z80 Turbo, Extended Resolution, Integer and Nearest scaling, and Game Gear / Master System colors",
+		"release_date": "2026-11-25",
 		"license": "GPL-3.0-only"
 	},
 	"hardware": {
